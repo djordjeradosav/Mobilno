@@ -2,7 +2,7 @@ import ForecastCard, { Forecast } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@clerk/clerk-expo';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,

@@ -336,7 +336,7 @@ export default function Profile() {
                 visible={modalVisible}
                 forecast={selectedForecast}
                 onClose={() => setModalVisible(false)}
-                onLike={() => {}}
+                onLike={() => { }}
                 isLiked={false}
                 currentUserId={user?.id}
             />

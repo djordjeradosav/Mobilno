@@ -40,7 +40,7 @@ export default function RootLayout() {
     if (!loaded) return null;
 
     return (
-        <ClerkProvider publishableKey={CLERK_KEY} tokenCache={tokenCache}>
+        <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY as string} tokenCache={tokenCache}>
             <ClerkLoaded>
                 <Stack screenOptions={{ headerShown: false }}>
                     <Stack.Screen name="index" />

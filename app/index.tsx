@@ -10,7 +10,7 @@ export default function Index() {
   useEffect(() => {
     if (!isLoaded) return;
     const t = setTimeout(() => {
-      router.replace(isSignedIn ? '/(tabs)/popular' : '/(auth)/welcome');
+      router.replace(isSignedIn ? '/(tabs)/popular' : '/(auth)/welcome' as any);
     }, 1500);
     return () => clearTimeout(t);
   }, [isLoaded, isSignedIn]);

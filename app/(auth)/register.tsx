@@ -15,13 +15,14 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { syncUserToSupabase } from '../../lib/syncUser';
+
+// FIX: was '../../lib/syncUser' — use alias so it works regardless of nesting depth
+import { syncUserToSupabase } from '@/lib/syncUser';
 
 export default function Register() {
     const router = useRouter();
     const { signUp, setActive, isLoaded } = useSignUp();
 
-    // Step 1 fields
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
@@ -30,7 +31,6 @@ export default function Register() {
     const [agreeTerms, setAgreeTerms] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    // Step 2 verification
     const [pendingVerification, setPendingVerification] = useState(false);
     const [code, setCode] = useState('');
     const [verifyLoading, setVerifyLoading] = useState(false);
@@ -75,17 +75,22 @@ export default function Register() {
             const result = await signUp.attemptEmailAddressVerification({ code: code.trim() });
 
             if (result.status === 'complete') {
-                // Sync to Supabase
-                if (result.createdUserId) {
-                    await syncUserToSupabase(result.createdUserId, username.trim().toLowerCase(), email.trim().toLowerCase());
+                // FIX: guard against null createdUserId before calling syncUser
+                if (!result.createdUserId) {
+                    throw new Error('Clerk did not return a user ID after verification.');
                 }
+                await syncUserToSupabase(
+                    result.createdUserId,
+                    username.trim().toLowerCase(),
+                    email.trim().toLowerCase()
+                );
                 await setActive({ session: result.createdSessionId });
                 router.replace('/(tabs)/popular');
             } else {
                 Alert.alert('Verification failed', 'Please check the code and try again.');
             }
         } catch (err: any) {
-            const msg = err?.errors?.[0]?.longMessage ?? 'Verification failed. Please try again.';
+            const msg = err?.errors?.[0]?.longMessage ?? err?.message ?? 'Verification failed.';
             Alert.alert('Error', msg);
         } finally {
             setVerifyLoading(false);
@@ -224,7 +229,11 @@ export default function Register() {
                                 onPress={() => setShowPassword(!showPassword)}
                                 style={styles.eyeBtn}
                             >
-                                <FontAwesome name={showPassword ? 'eye-slash' : 'eye'} size={16} color="#999" />
+                                <FontAwesome
+                                    name={showPassword ? 'eye-slash' : 'eye'}
+                                    size={16}
+                                    color="#999"
+                                />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -271,163 +280,67 @@ export default function Register() {
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#FAFAF8' },
-    container: {
-        flexGrow: 1,
-        paddingHorizontal: 24,
-        paddingTop: 56,
-        paddingBottom: 40,
-    },
+    container: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 56, paddingBottom: 40 },
     back: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
+        width: 44, height: 44, borderRadius: 12,
         backgroundColor: '#f0f0ee',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 32,
+        alignItems: 'center', justifyContent: 'center', marginBottom: 32,
     },
     header: { marginBottom: 36, gap: 6 },
-    logo: {
-        fontSize: 20,
-        fontWeight: '900',
-        fontStyle: 'italic',
-        color: '#F5C400',
-        marginBottom: 8,
-    },
-    title: {
-        fontSize: 32,
-        fontWeight: '800',
-        color: '#1a1a1a',
-        letterSpacing: -0.5,
-    },
+    logo: { fontSize: 20, fontWeight: '900', fontStyle: 'italic', color: '#F5C400', marginBottom: 8 },
+    title: { fontSize: 32, fontWeight: '800', color: '#1a1a1a', letterSpacing: -0.5 },
     subtitle: { fontSize: 15, color: '#888', fontWeight: '500' },
     form: { gap: 18 },
     fieldGroup: { gap: 8 },
-    label: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#1a1a1a',
-        letterSpacing: 0.3,
-    },
+    label: { fontSize: 13, fontWeight: '700', color: '#1a1a1a', letterSpacing: 0.3 },
     inputWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f0f0ee',
-        borderRadius: 14,
-        paddingHorizontal: 16,
-        height: 54,
-        borderWidth: 1.5,
-        borderColor: 'transparent',
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#f0f0ee', borderRadius: 14,
+        paddingHorizontal: 16, height: 54,
+        borderWidth: 1.5, borderColor: 'transparent',
     },
     inputIcon: { marginRight: 12 },
-    input: {
-        flex: 1,
-        fontSize: 16,
-        color: '#1a1a1a',
-        fontWeight: '500',
-    },
+    input: { flex: 1, fontSize: 16, color: '#1a1a1a', fontWeight: '500' },
     eyeBtn: { padding: 4 },
-    termsRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 12,
-        marginTop: 4,
-    },
+    termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 4 },
     checkbox: {
-        width: 22,
-        height: 22,
-        borderRadius: 6,
-        borderWidth: 2,
-        borderColor: '#ddd',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 1,
+        width: 22, height: 22, borderRadius: 6,
+        borderWidth: 2, borderColor: '#ddd',
+        alignItems: 'center', justifyContent: 'center', marginTop: 1,
     },
-    checkboxChecked: {
-        backgroundColor: '#1a1a1a',
-        borderColor: '#1a1a1a',
-    },
+    checkboxChecked: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
     termsText: { flex: 1, fontSize: 13, color: '#666', lineHeight: 20 },
     termsLink: { color: '#1a1a1a', fontWeight: '700' },
     registerBtn: {
-        backgroundColor: '#1a1a1a',
-        borderRadius: 16,
-        paddingVertical: 18,
-        alignItems: 'center',
-        marginTop: 8,
+        backgroundColor: '#1a1a1a', borderRadius: 16,
+        paddingVertical: 18, alignItems: 'center', marginTop: 8,
     },
     btnDisabled: { opacity: 0.6 },
-    registerBtnText: {
-        color: '#F5C400',
-        fontSize: 16,
-        fontWeight: '800',
-        letterSpacing: 0.3,
-    },
-    footer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 28,
-    },
+    registerBtnText: { color: '#F5C400', fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
+    footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 28 },
     footerText: { fontSize: 14, color: '#888' },
     footerLink: { fontSize: 14, color: '#1a1a1a', fontWeight: '700' },
-    // Verify step
     verifyContainer: {
-        flex: 1,
-        paddingHorizontal: 32,
-        paddingTop: 100,
-        alignItems: 'center',
-        gap: 16,
+        flex: 1, paddingHorizontal: 32, paddingTop: 100,
+        alignItems: 'center', gap: 16,
     },
     verifyIcon: {
-        width: 80,
-        height: 80,
-        borderRadius: 24,
+        width: 80, height: 80, borderRadius: 24,
         backgroundColor: '#1a1a1a',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 8,
+        alignItems: 'center', justifyContent: 'center', marginBottom: 8,
     },
-    verifyTitle: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#1a1a1a',
-        letterSpacing: -0.5,
-    },
-    verifySubtitle: {
-        fontSize: 15,
-        color: '#888',
-        textAlign: 'center',
-        lineHeight: 22,
-    },
+    verifyTitle: { fontSize: 28, fontWeight: '800', color: '#1a1a1a', letterSpacing: -0.5 },
+    verifySubtitle: { fontSize: 15, color: '#888', textAlign: 'center', lineHeight: 22 },
     codeWrap: { marginTop: 16, width: '100%' },
     codeInput: {
-        backgroundColor: '#f0f0ee',
-        borderRadius: 16,
-        height: 64,
-        fontSize: 28,
-        fontWeight: '700',
-        color: '#1a1a1a',
-        letterSpacing: 12,
-        borderWidth: 2,
-        borderColor: '#F5C400',
+        backgroundColor: '#f0f0ee', borderRadius: 16, height: 64,
+        fontSize: 28, fontWeight: '700', color: '#1a1a1a',
+        letterSpacing: 12, borderWidth: 2, borderColor: '#F5C400',
     },
     verifyBtn: {
-        backgroundColor: '#1a1a1a',
-        borderRadius: 16,
-        paddingVertical: 18,
-        alignItems: 'center',
-        width: '100%',
-        marginTop: 8,
+        backgroundColor: '#1a1a1a', borderRadius: 16,
+        paddingVertical: 18, alignItems: 'center', width: '100%', marginTop: 8,
     },
-    verifyBtnText: {
-        color: '#F5C400',
-        fontSize: 16,
-        fontWeight: '800',
-    },
-    backLink: {
-        fontSize: 14,
-        color: '#888',
-        marginTop: 8,
-        fontWeight: '600',
-    },
+    verifyBtnText: { color: '#F5C400', fontSize: 16, fontWeight: '800' },
+    backLink: { fontSize: 14, color: '#888', marginTop: 8, fontWeight: '600' },
 });

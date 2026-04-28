@@ -1,8 +1,8 @@
 import ForecastCard, { Forecast } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
+import { supabase } from '@/lib/supabase';
 import { useUser } from '@clerk/clerk-expo';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -14,13 +14,13 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../../lib/supabase';
+
+// FIX: removed unused `useRouter` import (caused lint warning + dead code)
 
 const FILTER_OPTIONS = ['All', 'EUR/USD', 'GBP/USD', 'AUD/USD', 'XAU/USD', 'BTC/USD'];
 
 export default function ForecastFeed() {
     const { user } = useUser();
-    const router = useRouter();
     const [forecasts, setForecasts] = useState<Forecast[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -29,7 +29,7 @@ export default function ForecastFeed() {
     const [selectedForecast, setSelectedForecast] = useState<Forecast | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [activeFilter, setActiveFilter] = useState('All');
-    const subscriptionRef = useRef<any>(null);
+    const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
     const fetchForecasts = useCallback(async () => {
         let query = supabase
@@ -42,17 +42,20 @@ export default function ForecastFeed() {
             query = query.eq('currency_pair', activeFilter);
         }
 
-        const { data } = await query;
+        const { data, error } = await query;
+        // FIX: log fetch errors instead of silently ignoring them
+        if (error) console.error('[fetchForecasts]', error.message);
         if (data) setForecasts(data as Forecast[]);
     }, [activeFilter]);
 
     const fetchLikes = useCallback(async () => {
         if (!user?.id) return;
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('likes')
             .select('forecast_id')
             .eq('user_id', user.id);
-        if (data) setLikedIds(new Set(data.map((l: any) => l.forecast_id)));
+        if (error) console.error('[fetchLikes]', error.message);
+        if (data) setLikedIds(new Set(data.map((l: { forecast_id: string }) => l.forecast_id)));
     }, [user?.id]);
 
     useEffect(() => {
@@ -84,7 +87,7 @@ export default function ForecastFeed() {
                         );
                     } else if (payload.eventType === 'DELETE') {
                         setForecasts((prev) =>
-                            prev.filter((f) => f.id !== (payload.old as any).id)
+                            prev.filter((f) => f.id !== (payload.old as { id: string }).id)
                         );
                     }
                 }
@@ -107,6 +110,7 @@ export default function ForecastFeed() {
             if (!user?.id) return;
             const liked = likedIds.has(forecastId);
 
+            // Optimistic update
             setLikedIds((prev) => {
                 const next = new Set(prev);
                 liked ? next.delete(forecastId) : next.add(forecastId);
@@ -148,17 +152,10 @@ export default function ForecastFeed() {
         <>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Forecast Feed</Text>
-                <TouchableOpacity
-                    style={styles.postBtn}
-                    onPress={() => router.push('/post-forecast' as any)}
-                    activeOpacity={0.85}
-                >
-                    <FontAwesome name="plus" size={14} color="#1a1a1a" />
-                    <Text style={styles.postBtnText}>Post</Text>
-                </TouchableOpacity>
+                {/* FIX: Post button removed — post-forecast route does not exist yet.
+                    Re-add when you create app/post-forecast.tsx */}
             </View>
 
-            {/* Filter chips */}
             <FlatList
                 horizontal
                 data={FILTER_OPTIONS}
@@ -170,9 +167,7 @@ export default function ForecastFeed() {
                         style={[styles.filterChip, activeFilter === item && styles.filterChipActive]}
                         onPress={() => setActiveFilter(item)}
                     >
-                        <Text
-                            style={[styles.filterText, activeFilter === item && styles.filterTextActive]}
-                        >
+                        <Text style={[styles.filterText, activeFilter === item && styles.filterTextActive]}>
                             {item}
                         </Text>
                     </TouchableOpacity>
@@ -183,7 +178,7 @@ export default function ForecastFeed() {
 
     if (loading) {
         return (
-            <View style={{ flex: 1, backgroundColor: '#F5F5F3', alignItems: 'center', justifyContent: 'center' }}>
+            <View style={styles.loader}>
                 <ActivityIndicator size="large" color="#F5C400" />
             </View>
         );
@@ -198,11 +193,7 @@ export default function ForecastFeed() {
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={ListHeader}
                 refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor="#F5C400"
-                    />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F5C400" />
                 }
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
@@ -241,6 +232,7 @@ export default function ForecastFeed() {
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#F5F5F3' },
+    loader: { flex: 1, backgroundColor: '#F5F5F3', alignItems: 'center', justifyContent: 'center' },
     list: { paddingBottom: 32 },
     header: {
         flexDirection: 'row',
@@ -250,57 +242,22 @@ const styles = StyleSheet.create({
         paddingTop: 16,
         paddingBottom: 16,
     },
-    headerTitle: {
-        fontSize: 28,
-        fontWeight: '900',
-        color: '#1a1a1a',
-        letterSpacing: -0.5,
-    },
+    headerTitle: { fontSize: 28, fontWeight: '900', color: '#1a1a1a', letterSpacing: -0.5 },
     postBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: '#F5C400',
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: '#F5C400', borderRadius: 12,
+        paddingHorizontal: 16, paddingVertical: 10,
     },
     postBtnText: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
-    filtersRow: {
-        paddingHorizontal: 16,
-        gap: 8,
-        paddingBottom: 16,
-    },
+    filtersRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 16 },
     filterChip: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        backgroundColor: '#f0f0ee',
-        borderWidth: 1.5,
-        borderColor: 'transparent',
+        paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+        backgroundColor: '#f0f0ee', borderWidth: 1.5, borderColor: 'transparent',
     },
-    filterChipActive: {
-        backgroundColor: '#1a1a1a',
-        borderColor: '#1a1a1a',
-    },
+    filterChipActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
     filterText: { fontSize: 13, fontWeight: '700', color: '#888' },
     filterTextActive: { color: '#F5C400' },
-    emptyState: {
-        alignItems: 'center',
-        paddingVertical: 80,
-        paddingHorizontal: 40,
-        gap: 12,
-    },
-    emptyTitle: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#1a1a1a',
-        marginTop: 8,
-    },
-    emptySubtitle: {
-        fontSize: 15,
-        color: '#aaa',
-        textAlign: 'center',
-        lineHeight: 22,
-    },
+    emptyState: { alignItems: 'center', paddingVertical: 80, paddingHorizontal: 40, gap: 12 },
+    emptyTitle: { fontSize: 20, fontWeight: '800', color: '#1a1a1a', marginTop: 8 },
+    emptySubtitle: { fontSize: 15, color: '#aaa', textAlign: 'center', lineHeight: 22 },
 });

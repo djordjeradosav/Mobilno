@@ -10,41 +10,44 @@ import 'react-native-reanimated';
 export { ErrorBoundary } from 'expo-router';
 
 export const unstable_settings = {
-  initialRouteName: 'index',
+    initialRouteName: 'index',
 };
 
 SplashScreen.preventAutoHideAsync();
 
+// FIX: throw early with a clear message if the key is missing — avoids cryptic Clerk errors at runtime
+const CLERK_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+if (!CLERK_KEY) {
+    throw new Error(
+        'Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in .env — add it and restart the dev server.'
+    );
+}
+
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    ...FontAwesome.font,
-  });
+    const [loaded, error] = useFonts({
+        SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+        ...FontAwesome.font,
+    });
 
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+    useEffect(() => {
+        if (error) throw error;
+    }, [error]);
 
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+    useEffect(() => {
+        if (loaded) SplashScreen.hideAsync();
+    }, [loaded]);
 
-  if (!loaded) return null;
+    if (!loaded) return null;
 
-  return (
-    <ClerkProvider
-      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? 'pk_test_placeholder'}
-      tokenCache={tokenCache}
-    >
-      <ClerkLoaded>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </ClerkLoaded>
-    </ClerkProvider>
-  );
+    return (
+        <ClerkProvider publishableKey={CLERK_KEY} tokenCache={tokenCache}>
+            <ClerkLoaded>
+                <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="index" />
+                    <Stack.Screen name="(auth)" />
+                    <Stack.Screen name="(tabs)" />
+                </Stack>
+            </ClerkLoaded>
+        </ClerkProvider>
+    );
 }

@@ -1,19 +1,19 @@
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@/lib/auth';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 export default function Index() {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { user, isLoaded } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoaded) return;
     const t = setTimeout(() => {
-      router.replace(isSignedIn ? '/(tabs)/popular' : '/(auth)/welcome' as any);
+      router.replace(user ? '/(tabs)/popular' : '/(auth)/welcome' as any);
     }, 1500);
     return () => clearTimeout(t);
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, user]);
 
   return (
     <View style={s.container}>

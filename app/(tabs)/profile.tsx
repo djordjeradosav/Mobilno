@@ -1,7 +1,7 @@
 import { Forecast } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
 import { supabase } from '@/lib/supabase';
-import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useAuth } from '@/lib/auth';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -54,8 +54,7 @@ function formatMemberSince(dateStr: string) {
 }
 
 export default function Profile() {
-    const { user } = useUser();
-    const { signOut } = useAuth();
+    const { user, signOut } = useAuth();
     const router = useRouter();
 
     const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -67,11 +66,12 @@ export default function Profile() {
     const [refreshing, setRefreshing] = useState(false);
     const [selectedForecast, setSelectedForecast] = useState<Forecast | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
+    const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
     const fetchProfile = useCallback(async () => {
         if (!user?.id) return;
         const { data, error } = await supabase
-            .from('users').select('*').eq('id', user.id).single();
+            .from('users').select('*').eq('id', user.id).maybeSingle();
         if (error) console.error('[fetchProfile]', error.message);
         if (data) setProfile(data as ProfileData);
     }, [user?.id]);
@@ -80,10 +80,9 @@ export default function Profile() {
         if (!user?.id) return;
         const { data, error } = await supabase
             .from('forecasts')
-            .select('*, users(username, avatar_url, is_verified)')
+            .select('*, users!forecasts_user_id_fkey(username, avatar_url, is_verified)')
             .eq('user_id', user.id)
-            .order('profit', { ascending: false })
-            .limit(10);
+            .order('created_at', { ascending: false });
         if (error) console.error('[fetchMyForecasts]', error.message);
         if (data) setMyForecasts(data as Forecast[]);
     }, [user?.id]);
@@ -92,19 +91,19 @@ export default function Profile() {
         if (!user?.id) return;
         const { data: followingData, count: fwingCount } = await supabase
             .from('follows')
-            .select('following_id', { count: 'exact' })
+            .select('followed_id', { count: 'exact' })
             .eq('follower_id', user.id);
 
         const { count: fwerCount } = await supabase
             .from('follows')
             .select('*', { count: 'exact', head: true })
-            .eq('following_id', user.id);
+            .eq('followed_id', user.id);
 
         setFollowingCount(fwingCount ?? 0);
         setFollowerCount(fwerCount ?? 0);
 
         if (followingData && followingData.length > 0) {
-            const ids = followingData.map((f: { following_id: string }) => f.following_id);
+            const ids = followingData.map((f: { followed_id: string }) => f.followed_id);
             const { data: usersData, error } = await supabase
                 .from('users')
                 .select('id, username, avatar_url, is_verified')
@@ -112,22 +111,33 @@ export default function Profile() {
                 .limit(10);
             if (error) console.error('[fetchFollowed:users]', error.message);
             if (usersData) setFollowed(usersData as FollowedUser[]);
+        } else {
+            setFollowed([]);
         }
+    }, [user?.id]);
+
+    const fetchLikes = useCallback(async () => {
+        if (!user?.id) return;
+        const { data } = await supabase
+            .from('likes')
+            .select('forecast_id')
+            .eq('user_id', user.id);
+        if (data) setLikedIds(new Set(data.map(l => l.forecast_id)));
     }, [user?.id]);
 
     const init = useCallback(async () => {
         setLoading(true);
-        await Promise.all([fetchProfile(), fetchMyForecasts(), fetchFollowed()]);
+        await Promise.all([fetchProfile(), fetchMyForecasts(), fetchFollowed(), fetchLikes()]);
         setLoading(false);
-    }, [fetchProfile, fetchMyForecasts, fetchFollowed]);
+    }, [fetchProfile, fetchMyForecasts, fetchFollowed, fetchLikes]);
 
     useEffect(() => { init(); }, [init]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([fetchProfile(), fetchMyForecasts(), fetchFollowed()]);
+        await Promise.all([fetchProfile(), fetchMyForecasts(), fetchFollowed(), fetchLikes()]);
         setRefreshing(false);
-    }, [fetchProfile, fetchMyForecasts, fetchFollowed]);
+    }, [fetchProfile, fetchMyForecasts, fetchFollowed, fetchLikes]);
 
     const handleSignOut = () => {
         Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -137,33 +147,29 @@ export default function Profile() {
                 style: 'destructive',
                 onPress: async () => {
                     await signOut();
-                    // FIX: use replace so the user can't swipe back to the protected tab
                     router.replace('/(auth)/welcome');
                 },
             },
         ]);
     };
 
-    const handleDeleteForecast = async (id: string) => {
-        Alert.alert('Delete Forecast', 'This action cannot be undone.', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Delete',
-                style: 'destructive',
-                onPress: async () => {
-                    const { error } = await supabase
-                        .from('forecasts')
-                        .delete()
-                        .eq('id', id)
-                        .eq('user_id', user?.id ?? '');
-                    if (error) {
-                        Alert.alert('Error', 'Could not delete forecast. Please try again.');
-                        return;
-                    }
-                    setMyForecasts((prev) => prev.filter((f) => f.id !== id));
-                },
-            },
-        ]);
+    const handleLike = async (forecastId: string) => {
+        if (!user?.id) return;
+        const isLiked = likedIds.has(forecastId);
+        setLikedIds(prev => {
+            const next = new Set(prev);
+            if (isLiked) next.delete(forecastId);
+            else next.add(forecastId);
+            return next;
+        });
+        if (isLiked) {
+            await supabase.from('likes').delete().eq('user_id', user.id).eq('forecast_id', forecastId);
+            await supabase.rpc('decrement_likes', { forecast_id: forecastId });
+        } else {
+            await supabase.from('likes').insert({ user_id: user.id, forecast_id: forecastId });
+            await supabase.rpc('increment_likes', { forecast_id: forecastId });
+        }
+        fetchMyForecasts();
     };
 
     if (loading) {
@@ -174,7 +180,7 @@ export default function Profile() {
         );
     }
 
-    const displayName = profile?.username ?? user?.username ?? 'trader';
+    const displayName = profile?.username ?? 'trader';
     const memberSince = profile?.member_since ? formatMemberSince(profile.member_since) : 'Recently joined';
 
     return (
@@ -189,7 +195,7 @@ export default function Profile() {
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Profile</Text>
                     <TouchableOpacity style={styles.settingsBtn} onPress={handleSignOut}>
-                        <FontAwesome name="cog" size={20} color="#1a1a1a" />
+                        <FontAwesome name="sign-out" size={20} color="#1a1a1a" />
                     </TouchableOpacity>
                 </View>
 
@@ -233,10 +239,10 @@ export default function Profile() {
 
                 {myForecasts.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>🏆 Best Trades</Text>
+                        <Text style={styles.sectionTitle}>📈 My Forecasts</Text>
                         <FlatList
                             horizontal
-                            data={myForecasts.slice(0, 5)}
+                            data={myForecasts}
                             keyExtractor={(item) => item.id}
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={{ gap: 12 }}
@@ -268,77 +274,26 @@ export default function Profile() {
                             data={followed}
                             keyExtractor={(item) => item.id}
                             showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{ gap: 12 }}
+                            contentContainerStyle={{ gap: 16 }}
                             renderItem={({ item }) => (
-                                <View style={styles.followedCard}>
-                                    <Avatar url={item.avatar_url} username={item.username} size={48} />
-                                    {item.is_verified && (
-                                        <View style={styles.smallVerified}>
-                                            <MaterialIcons name="verified" size={12} color="#F5C400" />
-                                        </View>
-                                    )}
+                                <View style={styles.followedUser}>
+                                    <Avatar url={item.avatar_url} username={item.username} size={50} />
                                     <Text style={styles.followedName} numberOfLines={1}>@{item.username}</Text>
                                 </View>
                             )}
                         />
                     </View>
                 )}
-
-                <View style={styles.section}>
-                    <View style={styles.sectionRow}>
-                        <Text style={styles.sectionTitle}>📊 My Forecasts</Text>
-                        <Text style={styles.sectionCount}>{myForecasts.length}</Text>
-                    </View>
-                    {myForecasts.length === 0 ? (
-                        <View style={styles.emptyState}>
-                            <MaterialIcons name="trending-up" size={40} color="#ddd" />
-                            <Text style={styles.emptyText}>No forecasts yet</Text>
-                        </View>
-                    ) : (
-                        myForecasts.map((item) => (
-                            <View key={item.id} style={styles.myForecastRow}>
-                                <TouchableOpacity
-                                    style={styles.myForecastContent}
-                                    onPress={() => { setSelectedForecast(item); setModalVisible(true); }}
-                                    activeOpacity={0.85}
-                                >
-                                    <View style={[styles.profitBadge, { backgroundColor: item.profit >= 0 ? '#ecfdf5' : '#fef2f2' }]}>
-                                        <Text style={[styles.profitText, { color: item.profit >= 0 ? '#059669' : '#dc2626' }]}>
-                                            {item.profit >= 0 ? '+' : ''}{item.profit.toFixed(1)}%
-                                        </Text>
-                                    </View>
-                                    <View style={styles.myForecastInfo}>
-                                        <Text style={styles.myForecastPair}>{item.currency_pair}</Text>
-                                        <Text style={styles.myForecastDesc} numberOfLines={1}>
-                                            {item.content || 'No description'}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.myForecastLikes}>
-                                        <FontAwesome name="heart" size={12} color="#ef4444" />
-                                        <Text style={styles.myForecastLikeCount}>{item.likes_count}</Text>
-                                    </View>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDeleteForecast(item.id)}>
-                                    <FontAwesome name="trash-o" size={16} color="#dc2626" />
-                                </TouchableOpacity>
-                            </View>
-                        ))
-                    )}
-                </View>
-
-                <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-                    <FontAwesome name="sign-out" size={16} color="#dc2626" />
-                    <Text style={styles.signOutText}>Sign Out</Text>
-                </TouchableOpacity>
             </ScrollView>
 
             <TradeDetailsModal
                 visible={modalVisible}
                 forecast={selectedForecast}
                 onClose={() => setModalVisible(false)}
-                onLike={() => { }}
-                isLiked={false}
+                onLike={handleLike}
+                isLiked={selectedForecast ? likedIds.has(selectedForecast.id) : false}
                 currentUserId={user?.id}
+                onUpdate={fetchMyForecasts}
             />
         </SafeAreaView>
     );
@@ -348,49 +303,32 @@ const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#F5F5F3' },
     loader: { flex: 1, backgroundColor: '#F5F5F3', alignItems: 'center', justifyContent: 'center' },
     scroll: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
     headerTitle: { fontSize: 28, fontWeight: '900', color: '#1a1a1a', letterSpacing: -0.5 },
-    settingsBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#f0f0ee', alignItems: 'center', justifyContent: 'center' },
-    profileCard: { marginHorizontal: 20, backgroundColor: '#fff', borderRadius: 20, padding: 20, gap: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
-    avatarWrap: { position: 'relative', alignSelf: 'flex-start' },
-    verifiedBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#1a1a1a', borderRadius: 10, width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
-    profileInfo: { gap: 6 },
-    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    username: { fontSize: 22, fontWeight: '800', color: '#1a1a1a' },
-    tierBadge: { backgroundColor: '#f0f0ee', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+    settingsBtn: { padding: 8 },
+    profileCard: { marginHorizontal: 20, backgroundColor: '#fff', borderRadius: 24, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
+    avatarWrap: { position: 'relative', marginBottom: 16 },
+    verifiedBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#fff', borderRadius: 10, padding: 2 },
+    profileInfo: { alignItems: 'center', gap: 4, marginBottom: 24 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    username: { fontSize: 20, fontWeight: '800', color: '#1a1a1a' },
+    tierBadge: { backgroundColor: '#f0f0ee', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
     tierBadgePro: { backgroundColor: '#F5C400' },
-    tierText: { fontSize: 11, fontWeight: '800', color: '#888', letterSpacing: 1 },
+    tierText: { fontSize: 10, fontWeight: '800', color: '#888' },
     tierTextPro: { color: '#1a1a1a' },
     memberSince: { fontSize: 13, color: '#aaa', fontWeight: '500' },
-    statsRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#f0f0ee', paddingTop: 16 },
+    statsRow: { flexDirection: 'row', width: '100%', borderTopWidth: 1, borderTopColor: '#f5f5f5', paddingTop: 20 },
     stat: { flex: 1, alignItems: 'center', gap: 4 },
-    statNum: { fontSize: 22, fontWeight: '900', color: '#1a1a1a' },
+    statNum: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
     statLabel: { fontSize: 12, color: '#aaa', fontWeight: '600' },
-    statDivider: { width: 1, backgroundColor: '#f0f0ee' },
-    section: { marginTop: 28, paddingHorizontal: 20, gap: 12 },
-    sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    sectionTitle: { fontSize: 16, fontWeight: '800', color: '#1a1a1a' },
-    sectionCount: { fontSize: 13, fontWeight: '700', color: '#aaa' },
-    tradeCard: { width: 120, backgroundColor: '#1a1a1a', borderRadius: 16, padding: 14, gap: 6 },
-    tradePair: { fontSize: 12, fontWeight: '800', color: '#fff' },
-    tradeProfit: { fontSize: 18, fontWeight: '900' },
-    tradeLikes: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-    tradeLikeCount: { fontSize: 12, color: '#888', fontWeight: '600' },
-    followedCard: { alignItems: 'center', gap: 6, position: 'relative' },
-    smallVerified: { position: 'absolute', top: 0, right: -2, backgroundColor: '#1a1a1a', borderRadius: 8, width: 16, height: 16, alignItems: 'center', justifyContent: 'center' },
-    followedName: { fontSize: 11, fontWeight: '700', color: '#1a1a1a', maxWidth: 70, textAlign: 'center' },
-    emptyState: { alignItems: 'center', paddingVertical: 40, gap: 8 },
-    emptyText: { fontSize: 15, color: '#aaa', fontWeight: '600' },
-    myForecastRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
-    myForecastContent: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-    profitBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
-    profitText: { fontSize: 14, fontWeight: '800' },
-    myForecastInfo: { flex: 1, gap: 3 },
-    myForecastPair: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
-    myForecastDesc: { fontSize: 12, color: '#aaa', fontWeight: '500' },
-    myForecastLikes: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    myForecastLikeCount: { fontSize: 13, color: '#666', fontWeight: '600' },
-    deleteBtn: { paddingHorizontal: 16, paddingVertical: 14, borderLeftWidth: 1, borderLeftColor: '#f0f0ee' },
-    signOutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, margin: 20, marginTop: 32, marginBottom: 40, backgroundColor: '#fef2f2', borderRadius: 14, paddingVertical: 16, borderWidth: 1.5, borderColor: '#fecaca' },
-    signOutText: { fontSize: 15, fontWeight: '700', color: '#dc2626' },
+    statDivider: { width: 1, height: 24, backgroundColor: '#f5f5f5' },
+    section: { marginTop: 32, paddingHorizontal: 20 },
+    sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1a1a1a', marginBottom: 16 },
+    tradeCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, width: 140, gap: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+    tradePair: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
+    tradeProfit: { fontSize: 16, fontWeight: '900' },
+    tradeLikes: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    tradeLikeCount: { fontSize: 12, color: '#666', fontWeight: '600' },
+    followedUser: { alignItems: 'center', gap: 8, width: 70 },
+    followedName: { fontSize: 11, fontWeight: '700', color: '#666', textAlign: 'center' },
 });

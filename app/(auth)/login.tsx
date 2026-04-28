@@ -1,4 +1,3 @@
-import { useSignIn } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -10,34 +9,31 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '@/lib/supabase';
 
 export default function Login() {
-  const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!isLoaded) return;
     if (!email.trim() || !password) {
       Alert.alert('Missing fields', 'Please enter your email and password.');
       return;
     }
     setLoading(true);
     try {
-      const result = await signIn.create({
-        identifier: email.trim().toLowerCase(),
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
         password,
       });
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
-        router.replace('/(tabs)/popular');
-      } else {
-        Alert.alert('Login failed', 'Please try again.');
-      }
+
+      if (error) throw error;
+
+      router.replace('/(tabs)/popular');
     } catch (err: any) {
-      Alert.alert('Login failed', err.errors?.[0]?.message ?? 'Invalid credentials.');
+      Alert.alert('Login failed', err.message ?? 'Invalid credentials.');
     } finally {
       setLoading(false);
     }

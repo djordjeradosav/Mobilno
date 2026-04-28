@@ -1,263 +1,194 @@
-import ForecastCard, { Forecast } from '@/components/ForecastCard';
-import TradeDetailsModal from '@/components/TradeDetailsModal';
 import { supabase } from '@/lib/supabase';
-import { useUser } from '@clerk/clerk-expo';
-import { MaterialIcons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useAuth } from '@/lib/auth';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
-    FlatList,
-    RefreshControl,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
+    Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
-// FIX: removed unused `useRouter` import (caused lint warning + dead code)
+const CURRENCY_PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD', 'BTC/USD', 'ETH/USD', 'GOLD'];
 
-const FILTER_OPTIONS = ['All', 'EUR/USD', 'GBP/USD', 'AUD/USD', 'XAU/USD', 'BTC/USD'];
+export default function CreateForecast() {
+    const { user } = useAuth();
+    const router = useRouter();
+    const [content, setContent] = useState('');
+    const [pair, setPair] = useState('EUR/USD');
+    const [profit, setProfit] = useState('');
+    const [chartUrl, setChartUrl] = useState('');
+    const [loading, setLoading] = useState(false);
 
-export default function ForecastFeed() {
-    const { user } = useUser();
-    const [forecasts, setForecasts] = useState<Forecast[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
-    const [watchedIds, setWatchedIds] = useState<Set<string>>(new Set());
-    const [selectedForecast, setSelectedForecast] = useState<Forecast | null>(null);
-    const [modalVisible, setModalVisible] = useState(false);
-    const [activeFilter, setActiveFilter] = useState('All');
-    const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-
-    const fetchForecasts = useCallback(async () => {
-        let query = supabase
-            .from('forecasts')
-            .select('*, users(username, avatar_url, is_verified)')
-            .order('created_at', { ascending: false })
-            .limit(30);
-
-        if (activeFilter !== 'All') {
-            query = query.eq('currency_pair', activeFilter);
+    const handleCreate = async () => {
+        if (!user?.id) {
+            Alert.alert('Error', 'You must be logged in to post.');
+            return;
+        }
+        if (!content.trim()) {
+            Alert.alert('Error', 'Please enter your analysis');
+            return;
+        }
+        if (!profit || isNaN(Number(profit))) {
+            Alert.alert('Error', 'Please enter a valid profit percentage');
+            return;
         }
 
-        const { data, error } = await query;
-        // FIX: log fetch errors instead of silently ignoring them
-        if (error) console.error('[fetchForecasts]', error.message);
-        if (data) setForecasts(data as Forecast[]);
-    }, [activeFilter]);
+        setLoading(true);
 
-    const fetchLikes = useCallback(async () => {
-        if (!user?.id) return;
-        const { data, error } = await supabase
-            .from('likes')
-            .select('forecast_id')
-            .eq('user_id', user.id);
-        if (error) console.error('[fetchLikes]', error.message);
-        if (data) setLikedIds(new Set(data.map((l: { forecast_id: string }) => l.forecast_id)));
-    }, [user?.id]);
-
-    useEffect(() => {
-        const init = async () => {
-            setLoading(true);
-            await Promise.all([fetchForecasts(), fetchLikes()]);
-            setLoading(false);
-        };
-        init();
-    }, [fetchForecasts, fetchLikes]);
-
-    // Real-time subscription
-    useEffect(() => {
-        subscriptionRef.current = supabase
-            .channel('forecasts-feed')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'forecasts' },
-                (payload) => {
-                    if (payload.eventType === 'INSERT') {
-                        fetchForecasts();
-                    } else if (payload.eventType === 'UPDATE') {
-                        setForecasts((prev) =>
-                            prev.map((f) =>
-                                f.id === (payload.new as Forecast).id
-                                    ? { ...f, ...(payload.new as Forecast) }
-                                    : f
-                            )
-                        );
-                    } else if (payload.eventType === 'DELETE') {
-                        setForecasts((prev) =>
-                            prev.filter((f) => f.id !== (payload.old as { id: string }).id)
-                        );
-                    }
-                }
-            )
-            .subscribe();
-
-        return () => {
-            subscriptionRef.current?.unsubscribe();
-        };
-    }, [fetchForecasts]);
-
-    const onRefresh = useCallback(async () => {
-        setRefreshing(true);
-        await fetchForecasts();
-        setRefreshing(false);
-    }, [fetchForecasts]);
-
-    const handleLike = useCallback(
-        async (forecastId: string) => {
-            if (!user?.id) return;
-            const liked = likedIds.has(forecastId);
-
-            // Optimistic update
-            setLikedIds((prev) => {
-                const next = new Set(prev);
-                liked ? next.delete(forecastId) : next.add(forecastId);
-                return next;
-            });
-            setForecasts((prev) =>
-                prev.map((f) =>
-                    f.id === forecastId
-                        ? { ...f, likes_count: f.likes_count + (liked ? -1 : 1) }
-                        : f
-                )
-            );
-
-            if (liked) {
-                await supabase.from('likes').delete().eq('user_id', user.id).eq('forecast_id', forecastId);
-                await supabase.rpc('decrement_likes', { forecast_id: forecastId });
-            } else {
-                await supabase.from('likes').insert({ user_id: user.id, forecast_id: forecastId });
-                await supabase.rpc('increment_likes', { forecast_id: forecastId });
-            }
-        },
-        [user?.id, likedIds]
-    );
-
-    const handleWatch = useCallback((forecastId: string) => {
-        setWatchedIds((prev) => {
-            const next = new Set(prev);
-            prev.has(forecastId) ? next.delete(forecastId) : next.add(forecastId);
-            return next;
+        // Use the bypass RPC function
+        const { data, error } = await supabase.rpc('create_forecast_v2', {
+            p_content: content.trim(),
+            p_currency_pair: pair,
+            p_profit: Number(profit),
+            p_chart_image_url: chartUrl.trim() || null
         });
-    }, []);
 
-    const openModal = useCallback((forecast: Forecast) => {
-        setSelectedForecast(forecast);
-        setModalVisible(true);
-    }, []);
-
-    const ListHeader = (
-        <>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Forecast Feed</Text>
-                {/* FIX: Post button removed — post-forecast route does not exist yet.
-                    Re-add when you create app/post-forecast.tsx */}
-            </View>
-
-            <FlatList
-                horizontal
-                data={FILTER_OPTIONS}
-                keyExtractor={(item) => item}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filtersRow}
-                renderItem={({ item }) => (
-                    <TouchableOpacity
-                        style={[styles.filterChip, activeFilter === item && styles.filterChipActive]}
-                        onPress={() => setActiveFilter(item)}
-                    >
-                        <Text style={[styles.filterText, activeFilter === item && styles.filterTextActive]}>
-                            {item}
-                        </Text>
-                    </TouchableOpacity>
-                )}
-            />
-        </>
-    );
-
-    if (loading) {
-        return (
-            <View style={styles.loader}>
-                <ActivityIndicator size="large" color="#F5C400" />
-            </View>
-        );
-    }
+        setLoading(false);
+        if (error) {
+            console.error('[handleCreate] RPC Error:', JSON.stringify(error, null, 2));
+            Alert.alert('Error', `Could not create forecast: ${error.message}`);
+        } else {
+            Alert.alert('Success', 'Your forecast has been posted!', [
+                { text: 'OK', onPress: () => router.push('/(tabs)/popular') }
+            ]);
+            setContent('');
+            setProfit('');
+            setChartUrl('');
+        }
+    };
 
     return (
         <SafeAreaView style={styles.root} edges={['top']}>
-            <FlatList
-                data={forecasts}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.list}
-                showsVerticalScrollIndicator={false}
-                ListHeaderComponent={ListHeader}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F5C400" />
-                }
-                ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                        <MaterialIcons name="trending-up" size={48} color="#ddd" />
-                        <Text style={styles.emptyTitle}>No forecasts yet</Text>
-                        <Text style={styles.emptySubtitle}>
-                            {activeFilter !== 'All'
-                                ? `No ${activeFilter} forecasts found`
-                                : 'Be the first to share a trade forecast!'}
-                        </Text>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                    <View style={styles.header}>
+                        <Text style={styles.headerTitle}>New Forecast</Text>
+                        <Text style={styles.headerSub}>Share your market analysis with the community</Text>
                     </View>
-                }
-                renderItem={({ item }) => (
-                    <ForecastCard
-                        forecast={item}
-                        onPress={() => openModal(item)}
-                        onLike={() => handleLike(item.id)}
-                        onWatch={() => handleWatch(item.id)}
-                        isLiked={likedIds.has(item.id)}
-                        isWatched={watchedIds.has(item.id)}
-                    />
-                )}
-            />
 
-            <TradeDetailsModal
-                visible={modalVisible}
-                forecast={selectedForecast}
-                onClose={() => setModalVisible(false)}
-                onLike={handleLike}
-                isLiked={selectedForecast ? likedIds.has(selectedForecast.id) : false}
-                currentUserId={user?.id}
-            />
+                    <View style={styles.section}>
+                        <Text style={styles.label}>Select Asset</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pairRow}>
+                            {CURRENCY_PAIRS.map(p => (
+                                <TouchableOpacity
+                                    key={p}
+                                    style={[styles.pairBtn, pair === p && styles.pairBtnActive]}
+                                    onPress={() => setPair(p)}
+                                >
+                                    <Text style={[styles.pairText, pair === p && styles.pairTextActive]}>{p}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.label}>Profit / Loss (%)</Text>
+                        <View style={styles.inputWrap}>
+                            <FontAwesome name="percent" size={14} color="#999" style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="e.g. 2.5 or -1.2"
+                                placeholderTextColor="#999"
+                                value={profit}
+                                onChangeText={setProfit}
+                                keyboardType="numeric"
+                            />
+                        </View>
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.label}>Chart Image URL (Optional)</Text>
+                        <View style={styles.inputWrap}>
+                            <FontAwesome name="link" size={14} color="#999" style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Paste TradingView or image link"
+                                placeholderTextColor="#999"
+                                value={chartUrl}
+                                onChangeText={setChartUrl}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                        </View>
+                        {chartUrl.trim().length > 0 && (
+                            <View style={styles.previewContainer}>
+                                <Text style={styles.previewLabel}>Preview:</Text>
+                                <Image
+                                    source={{ uri: chartUrl }}
+                                    style={styles.previewImage}
+                                    resizeMode="cover"
+                                />
+                            </View>
+                        )}
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.label}>Analysis & Reasoning</Text>
+                        <TextInput
+                            style={styles.textArea}
+                            placeholder="What's your strategy? Why this trade?"
+                            placeholderTextColor="#999"
+                            value={content}
+                            onChangeText={setContent}
+                            multiline
+                            numberOfLines={6}
+                            textAlignVertical="top"
+                        />
+                    </View>
+
+                    <TouchableOpacity
+                        style={[styles.submitBtn, loading && { opacity: 0.7 }]}
+                        onPress={handleCreate}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color="#1a1a1a" />
+                        ) : (
+                            <>
+                                <Text style={styles.submitBtnText}>Post Forecast</Text>
+                                <MaterialIcons name="send" size={18} color="#1a1a1a" />
+                            </>
+                        )}
+                    </TouchableOpacity>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#F5F5F3' },
-    loader: { flex: 1, backgroundColor: '#F5F5F3', alignItems: 'center', justifyContent: 'center' },
-    list: { paddingBottom: 32 },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 16,
-    },
+    scroll: { padding: 20, gap: 24 },
+    header: { gap: 4 },
     headerTitle: { fontSize: 28, fontWeight: '900', color: '#1a1a1a', letterSpacing: -0.5 },
-    postBtn: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        backgroundColor: '#F5C400', borderRadius: 12,
-        paddingHorizontal: 16, paddingVertical: 10,
-    },
-    postBtnText: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
-    filtersRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 16 },
-    filterChip: {
-        paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-        backgroundColor: '#f0f0ee', borderWidth: 1.5, borderColor: 'transparent',
-    },
-    filterChipActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
-    filterText: { fontSize: 13, fontWeight: '700', color: '#888' },
-    filterTextActive: { color: '#F5C400' },
-    emptyState: { alignItems: 'center', paddingVertical: 80, paddingHorizontal: 40, gap: 12 },
-    emptyTitle: { fontSize: 20, fontWeight: '800', color: '#1a1a1a', marginTop: 8 },
-    emptySubtitle: { fontSize: 15, color: '#aaa', textAlign: 'center', lineHeight: 22 },
+    headerSub: { fontSize: 14, color: '#888', fontWeight: '500' },
+    section: { gap: 12 },
+    label: { fontSize: 15, fontWeight: '800', color: '#1a1a1a' },
+    pairRow: { gap: 10, paddingBottom: 4 },
+    pairBtn: { backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: '#eee' },
+    pairBtnActive: { backgroundColor: '#F5C400', borderColor: '#F5C400' },
+    pairText: { fontSize: 14, fontWeight: '700', color: '#666' },
+    pairTextActive: { color: '#1a1a1a' },
+    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 16, height: 52, borderWidth: 1, borderColor: '#eee' },
+    inputIcon: { marginRight: 12 },
+    input: { flex: 1, fontSize: 16, color: '#1a1a1a', fontWeight: '600' },
+    previewContainer: { marginTop: 8, gap: 8 },
+    previewLabel: { fontSize: 12, color: '#999', fontWeight: '600' },
+    previewImage: { width: '100%', height: 180, borderRadius: 12, backgroundColor: '#eee' },
+    textArea: { backgroundColor: '#fff', borderRadius: 16, padding: 16, fontSize: 16, color: '#1a1a1a', fontWeight: '500', minHeight: 150, borderWidth: 1, borderColor: '#eee' },
+    submitBtn: { backgroundColor: '#F5C400', borderRadius: 16, height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, shadowColor: '#F5C400', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4, marginTop: 12 },
+    submitBtnText: { fontSize: 16, fontWeight: '800', color: '#1a1a1a' },
 });

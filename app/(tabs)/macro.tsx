@@ -1,91 +1,37 @@
-
-import { FRED_SERIES, FredSeries, formatFredValue, getAllFredSeries, hasFredKey } from '@/lib/fred';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { FredSeries, formatFredValue, getAllFredSeries, hasFredKey } from '@/lib/fred';
+import { MaterialIcons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Linking,
     RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
+    Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-function MacroCard({ s }: { s: FredSeries }) {
-    const v = s.latest;
-    const change = s.changePct;
-    const positive = (change ?? 0) >= 0;
+const { width: SCREEN_W } = Dimensions.get('window');
 
-    return (
-        <View style={styles.card}>
-            <View style={styles.cardHeader}>
-                <Text style={styles.cardEmoji}>{s.emoji}</Text>
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle} numberOfLines={1}>{s.title}</Text>
-                    <Text style={styles.cardId}>{s.id}</Text>
-                </View>
-            </View>
-
-            <Text style={styles.cardValue}>
-                {v ? formatFredValue(v.value, s.unit) : '—'}
-            </Text>
-
-            {change !== null && (
-                <View style={[styles.chipRow]}>
-                    <View
-                        style={[
-                            styles.changeChip,
-                            { backgroundColor: positive ? '#ecfdf5' : '#fef2f2' },
-                        ]}
-                    >
-                        <FontAwesome
-                            name={positive ? 'arrow-up' : 'arrow-down'}
-                            size={9}
-                            color={positive ? '#059669' : '#dc2626'}
-                        />
-                        <Text
-                            style={[
-                                styles.changeText,
-                                { color: positive ? '#059669' : '#dc2626' },
-                            ]}
-                        >
-                            {Math.abs(change).toFixed(2)}%
-                        </Text>
-                    </View>
-                    <Text style={styles.cardDate}>{v?.date}</Text>
-                </View>
-            )}
-
-            {/* Tiny sparkline */}
-            {s.observations.length > 1 && <Sparkline series={s.observations.slice(0, 18)} />}
-        </View>
-    );
-}
-
-function Sparkline({ series }: { series: { value: number }[] }) {
-    const values = series.map((o) => o.value).reverse();
+function SimpleChart({ observations }: { observations: { value: number }[] }) {
+    const values = observations.map(o => o.value).reverse();
     const min = Math.min(...values);
     const max = Math.max(...values);
     const range = max - min || 1;
 
     return (
-        <View style={styles.spark}>
+        <View style={styles.chartContainer}>
             {values.map((v, i) => {
-                const h = ((v - min) / range) * 32 + 4;
+                const h = ((v - min) / range) * 40 + 5;
                 return (
                     <View
                         key={i}
-                        style={{
-                            flex: 1,
-                            height: h,
-                            backgroundColor: '#F5C400',
-                            opacity: 0.4 + (i / values.length) * 0.6,
-                            borderRadius: 1.5,
-                            marginRight: 1,
-                        }}
+                        style={[
+                            styles.bar,
+                            { height: h, opacity: 0.3 + (i / values.length) * 0.7 }
+                        ]}
                     />
                 );
             })}
@@ -104,10 +50,6 @@ export default function Macro() {
     }, []);
 
     useEffect(() => {
-        if (!hasFredKey()) {
-            setLoading(false);
-            return;
-        }
         (async () => {
             setLoading(true);
             await load();
@@ -121,30 +63,6 @@ export default function Macro() {
         setRefreshing(false);
     }, [load]);
 
-    if (!hasFredKey()) {
-        return (
-            <SafeAreaView style={styles.root} edges={['top']}>
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Macro</Text>
-                    <Text style={styles.headerSub}>US economic indicators</Text>
-                </View>
-                <View style={styles.emptyBox}>
-                    <MaterialIcons name="lock-outline" size={40} color="#ccc" />
-                    <Text style={styles.emptyTitle}>FRED API key required</Text>
-                    <Text style={styles.emptyText}>
-                        Get a free key at fredaccount.stlouisfed.org/apikeys, then ask the agent to wire it up.
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.linkBtn}
-                        onPress={() => Linking.openURL('https://fredaccount.stlouisfed.org/apikeys')}
-                    >
-                        <Text style={styles.linkBtnText}>Get FRED key</Text>
-                    </TouchableOpacity>
-                </View>
-            </SafeAreaView>
-        );
-    }
-
     if (loading) {
         return (
             <View style={styles.loader}>
@@ -155,32 +73,55 @@ export default function Macro() {
 
     return (
         <SafeAreaView style={styles.root} edges={['top']}>
+            <View style={styles.header}>
+                <View>
+                    <Text style={styles.headerTitle}>Macro Data</Text>
+                    <Text style={styles.headerSub}>US Economic Indicators (FRED API)</Text>
+                </View>
+                <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
+                    <MaterialIcons name="refresh" size={20} color="#1a1a1a" />
+                </TouchableOpacity>
+            </View>
+
             <ScrollView
+                style={styles.scroll}
                 showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F5C400" />
-                }
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F5C400" />}
             >
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Macro</Text>
-                    <Text style={styles.headerSub}>US economic indicators · FRED</Text>
-                </View>
+                <View style={styles.table}>
+                    <View style={styles.tableHeader}>
+                        <Text style={[styles.th, { flex: 2 }]}>Indicator</Text>
+                        <Text style={styles.th}>Previous</Text>
+                        <Text style={styles.th}>Current</Text>
+                        <Text style={styles.th}>Trend</Text>
+                    </View>
 
-                <View style={styles.grid}>
-                    {series.length === 0
-                        ? FRED_SERIES.map((s) => (
-                            <View key={s.id} style={[styles.card, { opacity: 0.5 }]}>
-                                <Text style={styles.cardEmoji}>{s.emoji}</Text>
-                                <Text style={styles.cardTitle}>{s.title}</Text>
-                                <Text style={styles.cardValue}>—</Text>
+                    {series.map((s) => (
+                        <View key={s.id} style={styles.tr}>
+                            <View style={[styles.td, { flex: 2 }]}>
+                                <Text style={styles.indicatorEmoji}>{s.emoji}</Text>
+                                <View>
+                                    <Text style={styles.indicatorTitle}>{s.title}</Text>
+                                    <Text style={styles.indicatorId}>{s.id}</Text>
+                                </View>
                             </View>
-                        ))
-                        : series.map((s) => <MacroCard key={s.id} s={s} />)}
+                            <Text style={styles.td}>
+                                {s.previous ? formatFredValue(s.previous.value, s.unit) : '—'}
+                            </Text>
+                            <Text style={[styles.td, styles.currentValue]}>
+                                {s.latest ? formatFredValue(s.latest.value, s.unit) : '—'}
+                            </Text>
+                            <View style={styles.td}>
+                                <SimpleChart observations={s.observations.slice(0, 12)} />
+                            </View>
+                        </View>
+                    ))}
                 </View>
 
-                <Text style={styles.footer}>
-                    Source: FRED · Federal Reserve Bank of St. Louis
-                </Text>
+                <View style={styles.footer}>
+                    <Text style={styles.footerText}>Data source: Federal Reserve Bank of St. Louis (FRED)</Text>
+                    <Text style={styles.footerText}>Last updated: {new Date().toLocaleString()}</Text>
+                </View>
             </ScrollView>
         </SafeAreaView>
     );
@@ -188,74 +129,23 @@ export default function Macro() {
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#F5F5F3' },
-    loader: { flex: 1, backgroundColor: '#F5F5F3', alignItems: 'center', justifyContent: 'center' },
-    header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
+    loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F3' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, backgroundColor: '#F5F5F3' },
     headerTitle: { fontSize: 28, fontWeight: '900', color: '#1a1a1a', letterSpacing: -0.5 },
-    headerSub: { fontSize: 13, color: '#888', fontWeight: '600', marginTop: 4 },
-    grid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-        paddingHorizontal: 16,
-    },
-    card: {
-        width: '47%',
-        flexGrow: 1,
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        padding: 14,
-        gap: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-        elevation: 2,
-    },
-    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    cardEmoji: { fontSize: 22 },
-    cardTitle: { fontSize: 13, fontWeight: '700', color: '#1a1a1a' },
-    cardId: { fontSize: 10, color: '#bbb', fontWeight: '600', letterSpacing: 0.5, marginTop: 2 },
-    cardValue: { fontSize: 22, fontWeight: '900', color: '#1a1a1a' },
-    chipRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    changeChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 8,
-    },
-    changeText: { fontSize: 11, fontWeight: '800' },
-    cardDate: { fontSize: 10, color: '#bbb', fontWeight: '600' },
-    spark: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        height: 36,
-        marginTop: 4,
-    },
-    footer: {
-        textAlign: 'center',
-        fontSize: 11,
-        color: '#bbb',
-        fontWeight: '600',
-        paddingVertical: 32,
-    },
-    emptyBox: {
-        margin: 20,
-        padding: 32,
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        alignItems: 'center',
-        gap: 10,
-    },
-    emptyTitle: { fontSize: 17, fontWeight: '800', color: '#1a1a1a', marginTop: 8 },
-    emptyText: { fontSize: 13, color: '#888', textAlign: 'center', lineHeight: 19 },
-    linkBtn: {
-        marginTop: 12,
-        backgroundColor: '#F5C400',
-        borderRadius: 12,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-    },
-    linkBtnText: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
+    headerSub: { fontSize: 13, color: '#999', fontWeight: '500', marginTop: 4 },
+    refreshBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F5C400', alignItems: 'center', justifyContent: 'center' },
+    scroll: { flex: 1 },
+    table: { backgroundColor: '#fff', marginTop: 16, marginHorizontal: 16, marginBottom: 24, borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
+    tableHeader: { flexDirection: 'row', backgroundColor: '#f9f9f9', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+    th: { flex: 1, fontSize: 12, fontWeight: '800', color: '#999', textTransform: 'uppercase', textAlign: 'center', letterSpacing: 0.5 },
+    tr: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f8f8f8', alignItems: 'center' },
+    td: { flex: 1, fontSize: 13, fontWeight: '700', color: '#555', textAlign: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+    indicatorEmoji: { fontSize: 18, marginRight: 8 },
+    indicatorTitle: { fontSize: 13, fontWeight: '800', color: '#1a1a1a' },
+    indicatorId: { fontSize: 10, color: '#bbb', fontWeight: '600' },
+    currentValue: { color: '#1a1a1a', fontWeight: '900' },
+    chartContainer: { flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 50, width: 70 },
+    bar: { width: 4, backgroundColor: '#F5C400', borderRadius: 2 },
+    footer: { paddingHorizontal: 20, paddingVertical: 32, alignItems: 'center' },
+    footerText: { fontSize: 12, color: '#aaa', fontWeight: '500', marginBottom: 6, textAlign: 'center' },
 });

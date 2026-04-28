@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { uploadForecastImage } from "@/lib/uploadImage";
-import { useUser } from '@clerk/clerk-expo';
+import { useAuth } from '@/lib/auth';
 import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -24,7 +24,7 @@ const PAIRS = ['EUR/USD', 'GBP/USD', 'AUD/USD', 'JPY/USD', 'XAU/USD', 'BTC/USD',
 
 export default function PostForecast() {
     const router = useRouter();
-    const { user } = useUser();
+    const { user } = useAuth();
 
     const [pair, setPair] = useState('EUR/USD');
     const [profit, setProfit] = useState('');

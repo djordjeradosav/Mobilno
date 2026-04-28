@@ -1,14 +1,12 @@
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@/lib/auth';
 import { Redirect, Stack } from 'expo-router';
 
 export default function AuthLayout() {
-    const { isSignedIn, isLoaded } = useAuth();
+    const { user, isLoaded } = useAuth();
 
-    // FIX: must wait for Clerk to load before redirecting
-    // Without this, isSignedIn is undefined on cold start → flashes welcome screen for logged-in users
     if (!isLoaded) return null;
 
-    if (isSignedIn) {
+    if (user) {
         return <Redirect href="/(tabs)/popular" />;
     }
 

@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
@@ -19,6 +20,7 @@ export type Forecast = {
   currency_pair: string;
   profit: number;
   likes_count: number;
+  comments_count: number;
   created_at: string;
   users?: {
     username: string;
@@ -31,9 +33,7 @@ type Props = {
   forecast: Forecast;
   onPress?: () => void;
   onLike?: () => void;
-  onWatch?: () => void;
   isLiked?: boolean;
-  isWatched?: boolean;
 };
 
 function Avatar({
@@ -81,27 +81,27 @@ export default function ForecastCard({
   forecast,
   onPress,
   onLike,
-  onWatch,
   isLiked = false,
-  isWatched = false,
 }: Props) {
+  const router = useRouter();
   const user = forecast.users;
   const isProfitable = forecast.profit >= 0;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.95}>
-      {/* Header */}
       <View style={styles.cardHeader}>
-        <Avatar url={user?.avatar_url} username={user?.username ?? '?'} />
-        <View style={styles.userInfo}>
-          <View style={styles.userNameRow}>
-            <Text style={styles.username}>@{user?.username ?? 'unknown'}</Text>
-            {user?.is_verified && (
-              <MaterialIcons name="verified" size={14} color="#F5C400" />
-            )}
+        <TouchableOpacity onPress={() => router.push(`/user-profile?userId=${forecast.user_id}`)} style={styles.userClickable}>
+          <Avatar url={user?.avatar_url} username={user?.username ?? '?'} />
+          <View style={styles.userInfo}>
+            <View style={styles.userNameRow}>
+              <Text style={styles.username}>@{user?.username ?? 'unknown'}</Text>
+              {user?.is_verified && (
+                <MaterialIcons name="verified" size={14} color="#F5C400" />
+              )}
+            </View>
+            <Text style={styles.time}>{timeAgo(forecast.created_at)}</Text>
           </View>
-          <Text style={styles.time}>{timeAgo(forecast.created_at)}</Text>
-        </View>
+        </TouchableOpacity>
         <View
           style={[
             styles.pairBadge,
@@ -119,28 +119,20 @@ export default function ForecastCard({
         </View>
       </View>
 
-      {/* Content */}
       {forecast.content ? (
         <Text style={styles.content} numberOfLines={3}>
           {forecast.content}
         </Text>
       ) : null}
 
-      {/* Chart image */}
-      {forecast.chart_image_url ? (
+      {forecast.chart_image_url && (
         <Image
           source={{ uri: forecast.chart_image_url }}
           style={styles.chartImage}
           resizeMode="cover"
         />
-      ) : (
-        <View style={styles.chartPlaceholder}>
-          <MaterialIcons name="show-chart" size={32} color="#ddd" />
-          <Text style={styles.chartPlaceholderText}>Chart analysis</Text>
-        </View>
       )}
 
-      {/* Footer */}
       <View style={styles.cardFooter}>
         <View style={styles.profitBadge}>
           <FontAwesome
@@ -168,18 +160,9 @@ export default function ForecastCard({
             <Text style={styles.actionCount}>{forecast.likes_count}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.watchBtn, isWatched && styles.watchBtnActive]}
-            onPress={onWatch}
-          >
-            <FontAwesome
-              name={isWatched ? 'eye' : 'eye'}
-              size={13}
-              color={isWatched ? '#1a1a1a' : '#fff'}
-            />
-            <Text style={[styles.watchText, isWatched && styles.watchTextActive]}>
-              {isWatched ? 'Watching' : 'Watch'}
-            </Text>
+          <TouchableOpacity style={styles.actionBtn} onPress={onPress}>
+            <FontAwesome name="comment-o" size={16} color="#999" />
+            <Text style={styles.actionCount}>{forecast.comments_count || 0}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -200,93 +183,22 @@ const styles = StyleSheet.create({
     elevation: 3,
     gap: 12,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  avatarFallback: {
-    backgroundColor: '#F5C400',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    fontWeight: '800',
-    color: '#1a1a1a',
-  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  userClickable: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  avatarFallback: { backgroundColor: '#F5C400', alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { fontWeight: '800', color: '#1a1a1a' },
   userInfo: { flex: 1, gap: 2 },
   userNameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   username: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
   time: { fontSize: 12, color: '#aaa', fontWeight: '500' },
-  pairBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-  },
+  pairBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   pairText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-  content: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 21,
-    fontWeight: '400',
-  },
-  chartImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: 12,
-    backgroundColor: '#f5f5f5',
-  },
-  chartPlaceholder: {
-    width: '100%',
-    height: 140,
-    borderRadius: 12,
-    backgroundColor: '#f8f8f8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: '#eee',
-    borderStyle: 'dashed',
-  },
-  chartPlaceholderText: {
-    fontSize: 13,
-    color: '#ccc',
-    fontWeight: '600',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  profitBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#f8f8f8',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
+  content: { fontSize: 14, color: '#444', lineHeight: 21, fontWeight: '400' },
+  chartImage: { width: '100%', height: 180, borderRadius: 12, backgroundColor: '#f5f5f5' },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  profitBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f8f8f8', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
   profitText: { fontSize: 14, fontWeight: '800' },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionCount: { fontSize: 13, color: '#666', fontWeight: '600' },
-  watchBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#1a1a1a',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  watchBtnActive: {
-    backgroundColor: '#F5C400',
-  },
-  watchText: { fontSize: 13, color: '#fff', fontWeight: '700' },
-  watchTextActive: { color: '#1a1a1a' },
 });

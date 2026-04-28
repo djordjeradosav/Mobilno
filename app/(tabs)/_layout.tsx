@@ -1,4 +1,4 @@
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@/lib/auth';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
@@ -37,18 +37,17 @@ function TabIcon({
 }
 
 const tabStyles = StyleSheet.create({
-    wrap: { alignItems: 'center', gap: 3, paddingTop: 4 },
-    label: { fontSize: 10, fontWeight: '600', color: '#999' },
+    wrap: { alignItems: 'center', gap: 4, paddingTop: 6, paddingBottom: 2 },
+    label: { fontSize: 11, fontWeight: '700', color: '#999', letterSpacing: 0.3 },
     labelActive: { color: '#F5C400' },
 });
 
 export default function TabsLayout() {
-    const { isSignedIn, isLoaded } = useAuth();
+    const { user, isLoaded } = useAuth();
 
-    // FIX: wait for Clerk before deciding to redirect
     if (!isLoaded) return null;
 
-    if (!isSignedIn) {
+    if (!user) {
         return <Redirect href="/(auth)/welcome" />;
     }
 
@@ -57,12 +56,14 @@ export default function TabsLayout() {
             screenOptions={{
                 headerShown: false,
                 tabBarShowLabel: false,
+                tabBarItemStyle: { justifyContent: 'center', alignItems: 'center' },
                 tabBarStyle: {
                     backgroundColor: '#1a1a1a',
-                    borderTopWidth: 0,
-                    height: 72,
-                    paddingBottom: 8,
-                    paddingTop: 4,
+                    borderTopWidth: 1,
+                    borderTopColor: '#2a2a2a',
+                    height: 76,
+                    paddingBottom: 12,
+                    paddingTop: 8,
                     elevation: 20,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: -4 },
@@ -98,11 +99,20 @@ export default function TabsLayout() {
                 }}
             />
             <Tabs.Screen
+                name="macro"
+                options={{
+                    tabBarIcon: ({ focused }) => (
+                        <TabIcon materialIcon="bar-chart" label="Macro" focused={focused} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
                 name="profile"
                 options={{
                     tabBarIcon: ({ focused }) => (
                         <TabIcon iconName="user-circle" label="Profile" focused={focused} />
                     ),
+                    tabBarItemStyle: { flex: 1, justifyContent: 'center' },
                 }}
             />
         </Tabs>

@@ -48,8 +48,10 @@ export default function Register() {
 
         setLoading(true);
         try {
+            // NOTE: this Clerk instance only accepts email + password (no username field).
+            // We still keep `username` in the UI and persist it to Supabase via syncUserToSupabase
+            // after verification.
             await signUp.create({
-                username: username.trim().toLowerCase(),
                 emailAddress: email.trim().toLowerCase(),
                 password,
             });
@@ -75,15 +77,18 @@ export default function Register() {
             const result = await signUp.attemptEmailAddressVerification({ code: code.trim() });
 
             if (result.status === 'complete') {
-                // FIX: guard against null createdUserId before calling syncUser
-                if (!result.createdUserId) {
-                    throw new Error('Clerk did not return a user ID after verification.');
+                // Sync to Supabase but don't block sign-in if it fails (e.g. RLS not configured yet).
+                if (result.createdUserId) {
+                    try {
+                        await syncUserToSupabase(
+                            result.createdUserId,
+                            username.trim().toLowerCase(),
+                            email.trim().toLowerCase()
+                        );
+                    } catch (syncErr) {
+                        console.warn('Supabase sync failed (continuing anyway):', syncErr);
+                    }
                 }
-                await syncUserToSupabase(
-                    result.createdUserId,
-                    username.trim().toLowerCase(),
-                    email.trim().toLowerCase()
-                );
                 await setActive({ session: result.createdSessionId });
                 router.replace('/(tabs)/popular');
             } else {

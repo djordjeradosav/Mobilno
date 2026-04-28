@@ -14,20 +14,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function Login() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!isLoaded) return;
-    if (!username.trim() || !password) {
-      Alert.alert('Missing fields', 'Please enter your username and password.');
+    if (!email.trim() || !password) {
+      Alert.alert('Missing fields', 'Please enter your email and password.');
       return;
     }
     setLoading(true);
     try {
       const result = await signIn.create({
-        identifier: username.trim(),
+        identifier: email.trim().toLowerCase(),
         password,
       });
       if (result.status === 'complete') {
@@ -57,12 +57,13 @@ export default function Login() {
 
         <TextInput
           style={s.input}
-          placeholder="Username"
+          placeholder="Email"
           placeholderTextColor="#AAAAAA"
-          value={username}
-          onChangeText={setUsername}
+          value={email}
+          onChangeText={setEmail}
           autoCapitalize="none"
           autoCorrect={false}
+          keyboardType="email-address"
           returnKeyType="next"
         />
 

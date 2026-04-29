@@ -109,7 +109,7 @@ export default function ForecastCard({
 }: Props) {
   const router = useRouter();
   const user = forecast.users;
-  const isProfitable = forecast.money_value >= 0;
+  const isProfitable = (forecast.money_value || 0) >= 0;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.95}>
@@ -144,15 +144,15 @@ export default function ForecastCard({
                 { color: isProfitable ? '#059669' : '#dc2626' },
               ]}
             >
-              {forecast.symbol}
+              {forecast.symbol || forecast.currency_pair || 'UNKNOWN'}
             </Text>
           </View>
         </View>
       </View>
 
-      {forecast.content ? (
+      {forecast.notes || forecast.content ? (
         <Text style={styles.content} numberOfLines={3}>
-          {forecast.content}
+          {forecast.notes || forecast.content}
         </Text>
       ) : null}
 
@@ -177,7 +177,7 @@ export default function ForecastCard({
               { color: isProfitable ? '#059669' : '#dc2626' },
             ]}
           >
-            {isProfitable ? '+' : ''}{forecast.profit.toFixed(1)}%
+            {isProfitable ? '+' : ''}${Math.abs(forecast.money_value || 0).toFixed(2)}
           </Text>
         </View>
 

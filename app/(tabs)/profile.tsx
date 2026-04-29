@@ -1,4 +1,4 @@
-import { Forecast } from '@/components/ForecastCard';
+import { Trade } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
@@ -18,6 +18,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Avatar from '@/components/Avatar';
 
 type ProfileData = {
     id: string;
@@ -36,19 +37,6 @@ type FollowedUser = {
     is_verified: boolean;
 };
 
-function Avatar({ url, username, size = 80 }: { url?: string | null; username: string; size?: number }) {
-    if (url) {
-        return <Image source={{ uri: url }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
-    }
-    return (
-        <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#F5C400', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: size * 0.4, fontWeight: '800', color: '#1a1a1a' }}>
-                {username?.[0]?.toUpperCase() ?? '?'}
-            </Text>
-        </View>
-    );
-}
-
 function formatMemberSince(dateStr: string) {
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
@@ -58,13 +46,13 @@ export default function Profile() {
     const router = useRouter();
 
     const [profile, setProfile] = useState<ProfileData | null>(null);
-    const [myForecasts, setMyForecasts] = useState<Forecast[]>([]);
+    const [myTrades, setMyTrades] = useState<Trade[]>([]);
     const [followed, setFollowed] = useState<FollowedUser[]>([]);
     const [followerCount, setFollowerCount] = useState(0);
     const [followingCount, setFollowingCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [selectedForecast, setSelectedForecast] = useState<Forecast | null>(null);
+    const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
 
@@ -76,16 +64,39 @@ export default function Profile() {
         if (data) setProfile(data as ProfileData);
     }, [user?.id]);
 
-    const fetchMyForecasts = useCallback(async () => {
+    const fetchMyTrades = useCallback(async () => {
         if (!user?.id) return;
-        const { data, error } = await supabase
-            .from('forecasts')
-            .select('*, users!forecasts_user_id_fkey(username, avatar_url, is_verified)')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
-        if (error) console.error('[fetchMyForecasts]', error.message);
-        if (data) setMyForecasts(data as Forecast[]);
-    }, [user?.id]);
+        try {
+            // Fetch trades only (avoiding relationship errors)
+            const { data: tradesData, error: tradesError } = await supabase
+                .from('trades')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (tradesError) {
+                console.error('[fetchMyTrades] Trades Fetch Error:', tradesError.message);
+                return;
+            }
+
+            // Manually join with the user profile
+            if (tradesData && profile) {
+                const combined = tradesData.map(t => ({
+                    ...t,
+                    users: {
+                        username: profile.username,
+                        avatar_url: profile.avatar_url,
+                        is_verified: profile.is_verified
+                    }
+                }));
+                setMyTrades(combined as Trade[]);
+            } else if (tradesData) {
+                setMyTrades(tradesData as Trade[]);
+            }
+        } catch (err) {
+            console.error('[fetchMyTrades] Unexpected Error:', err);
+        }
+    }, [user?.id, profile]);
 
     const fetchFollowed = useCallback(async () => {
         if (!user?.id) return;
@@ -120,24 +131,27 @@ export default function Profile() {
         if (!user?.id) return;
         const { data } = await supabase
             .from('likes')
-            .select('forecast_id')
+            .select('trade_id')
             .eq('user_id', user.id);
-        if (data) setLikedIds(new Set(data.map(l => l.forecast_id)));
+        if (data) setLikedIds(new Set(data.map(l => l.trade_id)));
     }, [user?.id]);
 
     const init = useCallback(async () => {
         setLoading(true);
-        await Promise.all([fetchProfile(), fetchMyForecasts(), fetchFollowed(), fetchLikes()]);
+        await Promise.all([fetchProfile(), fetchFollowed(), fetchLikes()]);
+        // fetchMyTrades depends on profile, so we call it after
+        await fetchMyTrades();
         setLoading(false);
-    }, [fetchProfile, fetchMyForecasts, fetchFollowed, fetchLikes]);
+    }, [fetchProfile, fetchMyTrades, fetchFollowed, fetchLikes]);
 
     useEffect(() => { init(); }, [init]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([fetchProfile(), fetchMyForecasts(), fetchFollowed(), fetchLikes()]);
+        await Promise.all([fetchProfile(), fetchFollowed(), fetchLikes()]);
+        await fetchMyTrades();
         setRefreshing(false);
-    }, [fetchProfile, fetchMyForecasts, fetchFollowed, fetchLikes]);
+    }, [fetchProfile, fetchMyTrades, fetchFollowed, fetchLikes]);
 
     const handleSignOut = () => {
         Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -153,23 +167,23 @@ export default function Profile() {
         ]);
     };
 
-    const handleLike = async (forecastId: string) => {
+    const handleLike = async (tradeId: string) => {
         if (!user?.id) return;
-        const isLiked = likedIds.has(forecastId);
+        const isLiked = likedIds.has(tradeId);
         setLikedIds(prev => {
             const next = new Set(prev);
-            if (isLiked) next.delete(forecastId);
-            else next.add(forecastId);
+            if (isLiked) next.delete(tradeId);
+            else next.add(tradeId);
             return next;
         });
         if (isLiked) {
-            await supabase.from('likes').delete().eq('user_id', user.id).eq('forecast_id', forecastId);
-            await supabase.rpc('decrement_likes', { forecast_id: forecastId });
+            await supabase.from('likes').delete().eq('user_id', user.id).eq('trade_id', tradeId);
+            await supabase.rpc('decrement_likes', { trade_id: tradeId });
         } else {
-            await supabase.from('likes').insert({ user_id: user.id, forecast_id: forecastId });
-            await supabase.rpc('increment_likes', { forecast_id: forecastId });
+            await supabase.from('likes').insert({ user_id: user.id, trade_id: tradeId });
+            await supabase.rpc('increment_likes', { trade_id: tradeId });
         }
-        fetchMyForecasts();
+        fetchMyTrades();
     };
 
     if (loading) {
@@ -221,8 +235,8 @@ export default function Profile() {
                     </View>
                     <View style={styles.statsRow}>
                         <View style={styles.stat}>
-                            <Text style={styles.statNum}>{myForecasts.length}</Text>
-                            <Text style={styles.statLabel}>Forecasts</Text>
+                            <Text style={styles.statNum}>{myTrades.length}</Text>
+                            <Text style={styles.statLabel}>Trades</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.stat}>
@@ -237,24 +251,24 @@ export default function Profile() {
                     </View>
                 </View>
 
-                {myForecasts.length > 0 && (
+                {myTrades.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>📈 My Forecasts</Text>
+                        <Text style={styles.sectionTitle}>📈 My Trades</Text>
                         <FlatList
                             horizontal
-                            data={myForecasts}
+                            data={myTrades}
                             keyExtractor={(item) => item.id}
                             showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{ gap: 12 }}
+                            contentContainerStyle={{ gap: 12, paddingRight: 20 }}
                             renderItem={({ item }) => (
                                 <TouchableOpacity
                                     style={styles.tradeCard}
-                                    onPress={() => { setSelectedForecast(item); setModalVisible(true); }}
+                                    onPress={() => { setSelectedTrade(item); setModalVisible(true); }}
                                     activeOpacity={0.9}
                                 >
-                                    <Text style={styles.tradePair}>{item.currency_pair}</Text>
-                                    <Text style={[styles.tradeProfit, { color: item.profit >= 0 ? '#059669' : '#dc2626' }]}>
-                                        {item.profit >= 0 ? '+' : ''}{item.profit.toFixed(1)}%
+                                    <Text style={styles.tradePair}>{item.symbol || 'UNKNOWN'}</Text>
+                                    <Text style={[styles.tradeProfit, { color: (item.money_value || 0) >= 0 ? '#059669' : '#dc2626' }]}>
+                                        {(item.money_value || 0) >= 0 ? '+' : ''}${Math.abs(item.money_value || 0).toFixed(2)}
                                     </Text>
                                     <View style={styles.tradeLikes}>
                                         <FontAwesome name="heart" size={12} color="#ef4444" />
@@ -274,12 +288,15 @@ export default function Profile() {
                             data={followed}
                             keyExtractor={(item) => item.id}
                             showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{ gap: 16 }}
+                            contentContainerStyle={{ gap: 12, paddingRight: 20 }}
                             renderItem={({ item }) => (
-                                <View style={styles.followedUser}>
+                                <TouchableOpacity 
+                                    style={styles.followedUser} 
+                                    onPress={() => router.push(`/user-profile?userId=${item.id}`)}
+                                >
                                     <Avatar url={item.avatar_url} username={item.username} size={50} />
                                     <Text style={styles.followedName} numberOfLines={1}>@{item.username}</Text>
-                                </View>
+                                </TouchableOpacity>
                             )}
                         />
                     </View>
@@ -288,31 +305,31 @@ export default function Profile() {
 
             <TradeDetailsModal
                 visible={modalVisible}
-                forecast={selectedForecast}
+                forecast={selectedTrade}
                 onClose={() => setModalVisible(false)}
-                onLike={handleLike}
-                isLiked={selectedForecast ? likedIds.has(selectedForecast.id) : false}
+                onLike={() => selectedTrade && handleLike(selectedTrade.id)}
+                isLiked={selectedTrade ? likedIds.has(selectedTrade.id) : false}
                 currentUserId={user?.id}
-                onUpdate={fetchMyForecasts}
+                onUpdate={fetchMyTrades}
             />
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#F5F5F3' },
-    loader: { flex: 1, backgroundColor: '#F5F5F3', alignItems: 'center', justifyContent: 'center' },
+    root: { flex: 1, backgroundColor: '#FAFAF8' },
     scroll: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
-    headerTitle: { fontSize: 28, fontWeight: '900', color: '#1a1a1a', letterSpacing: -0.5 },
+    loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
+    headerTitle: { fontSize: 24, fontWeight: '900', color: '#1a1a1a' },
     settingsBtn: { padding: 8 },
-    profileCard: { marginHorizontal: 20, backgroundColor: '#fff', borderRadius: 24, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
+    profileCard: { backgroundColor: '#fff', marginHorizontal: 20, borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 15, elevation: 5 },
     avatarWrap: { position: 'relative', marginBottom: 16 },
-    verifiedBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#fff', borderRadius: 10, padding: 2 },
+    verifiedBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#fff', borderRadius: 10, padding: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
     profileInfo: { alignItems: 'center', gap: 4, marginBottom: 24 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     username: { fontSize: 20, fontWeight: '800', color: '#1a1a1a' },
-    tierBadge: { backgroundColor: '#f0f0ee', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    tierBadge: { backgroundColor: '#f0f0f0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
     tierBadgePro: { backgroundColor: '#F5C400' },
     tierText: { fontSize: 10, fontWeight: '800', color: '#888' },
     tierTextPro: { color: '#1a1a1a' },
@@ -321,14 +338,14 @@ const styles = StyleSheet.create({
     stat: { flex: 1, alignItems: 'center', gap: 4 },
     statNum: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
     statLabel: { fontSize: 12, color: '#aaa', fontWeight: '600' },
-    statDivider: { width: 1, height: 24, backgroundColor: '#f5f5f5' },
-    section: { marginTop: 32, paddingHorizontal: 20 },
+    statDivider: { width: 1, height: 30, backgroundColor: '#f5f5f5' },
+    section: { marginTop: 32, paddingLeft: 20 },
     sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1a1a1a', marginBottom: 16 },
-    tradeCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, width: 140, gap: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
-    tradePair: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
-    tradeProfit: { fontSize: 16, fontWeight: '900' },
-    tradeLikes: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    tradeLikeCount: { fontSize: 12, color: '#666', fontWeight: '600' },
-    followedUser: { alignItems: 'center', gap: 8, width: 70 },
-    followedName: { fontSize: 11, fontWeight: '700', color: '#666', textAlign: 'center' },
+    tradeCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, width: 140, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
+    tradePair: { fontSize: 16, fontWeight: '800', color: '#1a1a1a', marginBottom: 4 },
+    tradeProfit: { fontSize: 18, fontWeight: '900', marginBottom: 12 },
+    tradeLikes: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    tradeLikeCount: { fontSize: 12, fontWeight: '700', color: '#aaa' },
+    followedUser: { alignItems: 'center', gap: 8, width: 80 },
+    followedName: { fontSize: 11, fontWeight: '700', color: '#666', width: '100%', textAlign: 'center' },
 });

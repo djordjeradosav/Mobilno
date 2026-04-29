@@ -290,9 +290,15 @@ export default function Popular() {
 
                 {chartData.length > 1 && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Performance Trend</Text>
+                        <Text style={styles.sectionTitle}>📈 Cumulative P&L</Text>
                         <View style={styles.chartWrapper}>
-                            <Svg height="120" width={SCREEN_WIDTH - 40}>
+                            <Svg height="180" width={SCREEN_WIDTH - 40}>
+                                {/* Grid lines */}
+                                {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+                                    const y = 180 - (ratio * 180);
+                                    return <Line key={`grid-${i}`} x1="0" y1={y} x2={SCREEN_WIDTH - 40} y2={y} stroke="#f0f0f0" strokeWidth="1" strokeDasharray="4,4" />;
+                                })}
+                                {/* Line chart */}
                                 {chartData.map((val, i) => {
                                     if (i === 0) return null;
                                     const prev = chartData[i - 1];
@@ -301,14 +307,109 @@ export default function Popular() {
                                     const range = max === min ? 1 : max - min;
                                     const x1 = ((i - 1) / (chartData.length - 1)) * (SCREEN_WIDTH - 40);
                                     const x2 = (i / (chartData.length - 1)) * (SCREEN_WIDTH - 40);
-                                    const y1 = 120 - ((prev - min) / range) * 120;
-                                    const y2 = 120 - ((val - min) / range) * 120;
-                                    return <Line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#F5C400" strokeWidth="3" />;
+                                    const y1 = 180 - ((prev - min) / range) * 180;
+                                    const y2 = 180 - ((val - min) / range) * 180;
+                                    return <Line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" />;
+                                })}
+                                {/* Dots on line */}
+                                {chartData.map((val, i) => {
+                                    const max = Math.max(...chartData, 1);
+                                    const min = Math.min(...chartData, -1);
+                                    const range = max === min ? 1 : max - min;
+                                    const x = (i / (chartData.length - 1)) * (SCREEN_WIDTH - 40);
+                                    const y = 180 - ((val - min) / range) * 180;
+                                    return <Rect key={`dot-${i}`} x={x - 2} y={y - 2} width="4" height="4" fill="#3B82F6" rx="2" />;
                                 })}
                             </Svg>
                         </View>
                     </View>
                 )}
+
+                {/* Monthly Performance Bar Chart */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>📊 Monthly Performance</Text>
+                    <View style={styles.monthlyChartWrapper}>
+                        <Svg height="200" width={SCREEN_WIDTH - 40}>
+                            {(() => {
+                                const monthlyData: { [key: string]: { wins: number; losses: number } } = {};
+                                trades.forEach(t => {
+                                    const date = new Date(t.trade_date);
+                                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                                    if (!monthlyData[monthKey]) {
+                                        monthlyData[monthKey] = { wins: 0, losses: 0 };
+                                    }
+                                    if ((t.money_value || 0) >= 0) {
+                                        monthlyData[monthKey].wins += t.money_value || 0;
+                                    } else {
+                                        monthlyData[monthKey].losses += Math.abs(t.money_value || 0);
+                                    }
+                                });
+
+                                const months = Object.keys(monthlyData).sort();
+                                const maxValue = Math.max(
+                                    ...months.map(m => Math.max(monthlyData[m].wins, monthlyData[m].losses)),
+                                    1000
+                                );
+
+                                const barWidth = (SCREEN_WIDTH - 40) / (months.length * 2.5);
+                                const spacing = barWidth * 1.5;
+
+                                return (
+                                    <>
+                                        {/* Grid lines */}
+                                        {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+                                            const y = 160 - (ratio * 160);
+                                            return <Line key={`grid-${i}`} x1="0" y1={y} x2={SCREEN_WIDTH - 40} y2={y} stroke="#f0f0f0" strokeWidth="1" strokeDasharray="4,4" />;
+                                        })}
+                                        {/* Bars */}
+                                        {months.map((month, idx) => {
+                                            const data = monthlyData[month];
+                                            const winsHeight = (data.wins / maxValue) * 160;
+                                            const lossesHeight = (data.losses / maxValue) * 160;
+                                            const x = idx * spacing + 10;
+                                            return (
+                                                <g key={month}>
+                                                    {/* Wins bar (green) */}
+                                                    <Rect
+                                                        x={x}
+                                                        y={160 - winsHeight}
+                                                        width={barWidth * 0.45}
+                                                        height={winsHeight}
+                                                        fill="#10B981"
+                                                        rx="4"
+                                                    />
+                                                    {/* Losses bar (red) */}
+                                                    <Rect
+                                                        x={x + barWidth * 0.55}
+                                                        y={160 - lossesHeight}
+                                                        width={barWidth * 0.45}
+                                                        height={lossesHeight}
+                                                        fill="#EF4444"
+                                                        rx="4"
+                                                    />
+                                                    {/* Month label */}
+                                                    <Text x={x + barWidth * 0.5} y="175" fontSize="11" fill="#999" textAnchor="middle">
+                                                        {month.substring(5)}
+                                                    </Text>
+                                                </g>
+                                            );
+                                        })}
+                                    </>
+                                );
+                            })()}
+                        </Svg>
+                    </View>
+                    <View style={styles.chartLegend}>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendColor, { backgroundColor: '#10B981' }]} />
+                            <Text style={styles.legendText}>Wins</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendColor, { backgroundColor: '#EF4444' }]} />
+                            <Text style={styles.legendText}>Losses</Text>
+                        </View>
+                    </View>
+                </View>
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Trades on {new Date(selectedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
@@ -416,7 +517,12 @@ const styles = StyleSheet.create({
     cardValue: { fontSize: 18, fontWeight: '900', color: '#1a1a1a' },
     section: { padding: 20 },
     sectionTitle: { fontSize: 18, fontWeight: '900', color: '#1a1a1a', marginBottom: 15 },
-    chartWrapper: { backgroundColor: '#f9fafb', borderRadius: 16, padding: 15, borderWidth: 1, borderColor: '#f0f0f0' },
+    chartWrapper: { backgroundColor: '#f9fafb', borderRadius: 16, padding: 15, borderWidth: 1, borderColor: '#f0f0f0', marginVertical: 10 },
+    monthlyChartWrapper: { backgroundColor: '#f9fafb', borderRadius: 16, padding: 15, borderWidth: 1, borderColor: '#f0f0f0', marginVertical: 10 },
+    chartLegend: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 12 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    legendColor: { width: 12, height: 12, borderRadius: 2 },
+    legendText: { fontSize: 12, fontWeight: '600', color: '#666' },
     historyTable: { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#f0f0f0' },
     tableHeader: { flexDirection: 'row', backgroundColor: '#f9fafb', padding: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
     th: { flex: 1, fontSize: 11, fontWeight: '800', color: '#999', textTransform: 'uppercase' },

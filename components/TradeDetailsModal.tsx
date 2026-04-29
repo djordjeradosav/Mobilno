@@ -46,6 +46,11 @@ export default function TradeDetailsModal({
     const backdropAnim = useRef(new Animated.Value(0)).current;
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState('');
+    const [editSymbol, setEditSymbol] = useState('');
+    const [editMoneyValue, setEditMoneyValue] = useState('');
+    const [editTradeType, setEditTradeType] = useState<'Buy' | 'Sell'>('Buy');
+    const [editEntryPrice, setEditEntryPrice] = useState('');
+    const [editExitPrice, setEditExitPrice] = useState('');
     const [comments, setComments] = useState<any[]>([]);
     const [newComment, setNewComment] = useState('');
     const [submittingComment, setSubmittingComment] = useState(false);
@@ -64,6 +69,11 @@ export default function TradeDetailsModal({
     useEffect(() => {
         if (visible) {
             setEditContent(forecast?.notes || '');
+            setEditSymbol(forecast?.symbol || '');
+            setEditMoneyValue(forecast?.money_value?.toString() || '');
+            setEditTradeType(forecast?.trade_type || 'Buy');
+            setEditEntryPrice(forecast?.entry_price?.toString() || '');
+            setEditExitPrice(forecast?.exit_price?.toString() || '');
             setIsEditing(false);
             fetchComments();
             Animated.parallel([
@@ -76,7 +86,7 @@ export default function TradeDetailsModal({
                 Animated.timing(backdropAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
             ]).start();
         }
-    }, [visible, fetchComments, forecast?.notes]);
+    }, [visible, fetchComments, forecast?.notes, forecast?.symbol, forecast?.money_value, forecast?.trade_type, forecast?.entry_price, forecast?.exit_price]);
 
     const handleAddComment = async () => {
         if (!newComment.trim() || !currentUserId || !forecast?.id) return;
@@ -99,10 +109,19 @@ export default function TradeDetailsModal({
     };
 
     const handleUpdateTrade = async () => {
-        if (!forecast?.id || !editContent.trim()) return;
+        if (!forecast?.id) return;
+        const updateData: any = {
+            notes: editContent.trim(),
+            symbol: editSymbol.trim().toUpperCase() || forecast.symbol,
+            money_value: editMoneyValue ? Number(editMoneyValue) : forecast.money_value,
+            trade_type: editTradeType,
+        };
+        if (editEntryPrice) updateData.entry_price = Number(editEntryPrice);
+        if (editExitPrice) updateData.exit_price = Number(editExitPrice);
+
         const { error } = await supabase
             .from('trades')
-            .update({ notes: editContent.trim() })
+            .update(updateData)
             .eq('id', forecast.id);
 
         if (error) {
@@ -187,34 +206,100 @@ export default function TradeDetailsModal({
                             )}
                         </View>
 
-                        <View style={styles.statsRow}>
-                            <View style={styles.stat}>
-                                <Text style={styles.statLabel}>Symbol</Text>
-                                <Text style={styles.statValue}>{forecast.symbol}</Text>
+                        {isEditing ? (
+                            <View style={styles.editGrid}>
+                                <View style={styles.editField}>
+                                    <Text style={styles.editLabel}>Symbol</Text>
+                                    <TextInput
+                                        style={styles.editTextInput}
+                                        value={editSymbol}
+                                        onChangeText={setEditSymbol}
+                                        placeholder="BTC, AAPL, etc."
+                                    />
+                                </View>
+                                <View style={styles.editField}>
+                                    <Text style={styles.editLabel}>P&L ($)</Text>
+                                    <TextInput
+                                        style={styles.editTextInput}
+                                        value={editMoneyValue}
+                                        onChangeText={setEditMoneyValue}
+                                        keyboardType="decimal-pad"
+                                        placeholder="0.00"
+                                    />
+                                </View>
+                                <View style={styles.editField}>
+                                    <Text style={styles.editLabel}>Type</Text>
+                                    <View style={styles.typeButtonsRow}>
+                                        <TouchableOpacity
+                                            style={[styles.typeButton, editTradeType === 'Buy' && styles.typeButtonActive]}
+                                            onPress={() => setEditTradeType('Buy')}
+                                        >
+                                            <Text style={[styles.typeButtonText, editTradeType === 'Buy' && styles.typeButtonTextActive]}>Buy</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.typeButton, editTradeType === 'Sell' && styles.typeButtonActive]}
+                                            onPress={() => setEditTradeType('Sell')}
+                                        >
+                                            <Text style={[styles.typeButtonText, editTradeType === 'Sell' && styles.typeButtonTextActive]}>Sell</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                                <View style={styles.editField}>
+                                    <Text style={styles.editLabel}>Entry ($)</Text>
+                                    <TextInput
+                                        style={styles.editTextInput}
+                                        value={editEntryPrice}
+                                        onChangeText={setEditEntryPrice}
+                                        keyboardType="decimal-pad"
+                                        placeholder="0.00"
+                                    />
+                                </View>
+                                <View style={styles.editField}>
+                                    <Text style={styles.editLabel}>Exit ($)</Text>
+                                    <TextInput
+                                        style={styles.editTextInput}
+                                        value={editExitPrice}
+                                        onChangeText={setEditExitPrice}
+                                        keyboardType="decimal-pad"
+                                        placeholder="0.00"
+                                    />
+                                </View>
+                                <TouchableOpacity style={styles.saveBtn} onPress={handleUpdateTrade}>
+                                    <Text style={styles.saveBtnText}>Save All Changes</Text>
+                                </TouchableOpacity>
                             </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.stat}>
-                                <Text style={styles.statLabel}>Profit/Loss</Text>
-                                <Text style={[styles.statValue, { color: (forecast.money_value || 0) >= 0 ? '#059669' : '#dc2626' }]}>
-                                    {(forecast.money_value || 0) >= 0 ? '+' : ''}${forecast.money_value?.toFixed(2)}
-                                </Text>
-                            </View>
-                        </View>
+                        ) : (
+                            <>
+                                <View style={styles.statsRow}>
+                                    <View style={styles.stat}>
+                                        <Text style={styles.statLabel}>Symbol</Text>
+                                        <Text style={styles.statValue}>{forecast.symbol}</Text>
+                                    </View>
+                                    <View style={styles.statDivider} />
+                                    <View style={styles.stat}>
+                                        <Text style={styles.statLabel}>Profit/Loss</Text>
+                                        <Text style={[styles.statValue, { color: (forecast.money_value || 0) >= 0 ? '#059669' : '#dc2626' }]}>
+                                            {(forecast.money_value || 0) >= 0 ? '+' : ''}${forecast.money_value?.toFixed(2)}
+                                        </Text>
+                                    </View>
+                                </View>
 
-                        <View style={styles.detailsGrid}>
-                            <View style={styles.detailItem}>
-                                <Text style={styles.detailLabel}>Type</Text>
-                                <Text style={[styles.detailValue, { color: forecast.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]}>{forecast.trade_type || '—'}</Text>
-                            </View>
-                            <View style={styles.detailItem}>
-                                <Text style={styles.detailLabel}>Entry</Text>
-                                <Text style={styles.detailValue}>${forecast.entry_price || '—'}</Text>
-                            </View>
-                            <View style={styles.detailItem}>
-                                <Text style={styles.detailLabel}>Exit</Text>
-                                <Text style={styles.detailValue}>${forecast.exit_price || '—'}</Text>
-                            </View>
-                        </View>
+                                <View style={styles.detailsGrid}>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Type</Text>
+                                        <Text style={[styles.detailValue, { color: forecast.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]}>{forecast.trade_type || '—'}</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Entry</Text>
+                                        <Text style={styles.detailValue}>${forecast.entry_price || '—'}</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Exit</Text>
+                                        <Text style={styles.detailValue}>${forecast.exit_price || '—'}</Text>
+                                    </View>
+                                </View>
+                            </>
+                        )}
 
                         {(forecast.chart_image_url || forecast.tradingview_link) && (
                             <View style={styles.chartWrapper}>
@@ -239,9 +324,6 @@ export default function TradeDetailsModal({
                                         multiline
                                         autoFocus
                                     />
-                                    <TouchableOpacity style={styles.saveBtn} onPress={handleUpdateTrade}>
-                                        <Text style={styles.saveBtnText}>Save Changes</Text>
-                                    </TouchableOpacity>
                                 </View>
                             ) : (
                                 <Text style={styles.analysisText}>{forecast.notes || 'No notes for this trade.'}</Text>
@@ -304,6 +386,15 @@ const styles = StyleSheet.create({
     statLabel: { fontSize: 11, color: '#aaa', fontWeight: '600' },
     statValue: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
     statDivider: { width: 1, height: 36, backgroundColor: '#eee' },
+    editGrid: { backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 12 },
+    editField: { gap: 6 },
+    editLabel: { fontSize: 12, fontWeight: '700', color: '#666', textTransform: 'uppercase' },
+    editTextInput: { backgroundColor: '#f5f5f5', borderRadius: 10, padding: 12, fontSize: 15, borderWidth: 1, borderColor: '#eee' },
+    typeButtonsRow: { flexDirection: 'row', gap: 10 },
+    typeButton: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#f5f5f5', borderWidth: 1.5, borderColor: '#eee', alignItems: 'center' },
+    typeButtonActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
+    typeButtonText: { fontSize: 14, fontWeight: '700', color: '#666' },
+    typeButtonTextActive: { color: '#F5C400' },
     detailsGrid: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 16, marginVertical: 10, gap: 20 },
     detailItem: { flex: 1 },
     detailLabel: { fontSize: 11, fontWeight: '800', color: '#A0AEC0', textTransform: 'uppercase' },
@@ -327,8 +418,8 @@ const styles = StyleSheet.create({
     analysisText: { fontSize: 15, color: '#444', lineHeight: 23 },
     editBox: { gap: 12 },
     editInput: { backgroundColor: '#f5f5f5', borderRadius: 12, padding: 12, fontSize: 15, minHeight: 100 },
-    saveBtn: { backgroundColor: '#F5C400', borderRadius: 12, padding: 12, alignItems: 'center' },
-    saveBtnText: { fontWeight: '800', color: '#1a1a1a' },
+    saveBtn: { backgroundColor: '#F5C400', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 8 },
+    saveBtnText: { fontWeight: '800', color: '#1a1a1a', fontSize: 15 },
     divider: { height: 1, backgroundColor: '#eee', marginVertical: 8 },
     commentsSection: { gap: 16 },
     sectionTitle: { fontSize: 16, fontWeight: '800', color: '#1a1a1a' },

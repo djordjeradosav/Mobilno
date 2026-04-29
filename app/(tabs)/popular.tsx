@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
     ActivityIndicator,
     ScrollView,
@@ -42,9 +43,11 @@ export default function Popular() {
         setLoading(false);
     }, [user?.id]);
 
-    useEffect(() => {
-        fetchTrades();
-    }, [fetchTrades]);
+    useFocusEffect(
+        useCallback(() => {
+            fetchTrades();
+        }, [fetchTrades])
+    );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);

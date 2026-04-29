@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
@@ -14,10 +14,13 @@ import {
     TouchableOpacity,
     View,
     Image,
+    Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { getTradingViewImageUrl } from '@/components/ForecastCard';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function CreateForecast() {
     const { user } = useAuth();
@@ -49,21 +52,6 @@ export default function CreateForecast() {
         }
 
         setLoading(true);
-
-        // Calculate profit percentage if entry/exit are provided
-        let profitPct = 0;
-        if (entryPrice && exitPrice) {
-            const entry = Number(entryPrice);
-            const exit = Number(exitPrice);
-            if (entry > 0) {
-                profitPct = tradeType === 'Buy' 
-                    ? ((exit - entry) / entry) * 100 
-                    : ((entry - exit) / entry) * 100;
-            }
-        } else {
-            // Fallback or manual entry if needed, but for now we use moneyValue logic
-            // In a real app, you'd probably want to store both.
-        }
 
         const { error } = await supabase.rpc('add_new_trade', {
             p_symbol: symbol.trim().toUpperCase(),
@@ -97,153 +85,165 @@ export default function CreateForecast() {
 
     return (
         <SafeAreaView style={styles.root} edges={['top']}>
+            <View style={styles.header}>
+                <View>
+                    <Text style={styles.headerTitle}>New Trade</Text>
+                    <Text style={styles.headerSub}>Add a trade to your journal</Text>
+                </View>
+                <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()}>
+                    <MaterialIcons name="close" size={24} color="#1a1a1a" />
+                </TouchableOpacity>
+            </View>
+
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
                 <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-                    <View style={styles.header}>
-                        <Text style={styles.headerTitle}>Add New Trade</Text>
-                    </View>
+                    <View style={styles.formContainer}>
+                        <View style={styles.row}>
+                            <View style={styles.field}>
+                                <Text style={styles.label}>Date</Text>
+                                <View style={styles.inputWrap}>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={date}
+                                        onChangeText={setDate}
+                                        placeholder="YYYY-MM-DD"
+                                    />
+                                    <FontAwesome name="calendar" size={16} color="#999" />
+                                </View>
+                            </View>
+                            <View style={styles.field}>
+                                <Text style={styles.label}>Symbol *</Text>
+                                <View style={styles.inputWrap}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="AAPL, BTC, etc."
+                                        value={symbol}
+                                        onChangeText={setSymbol}
+                                        autoCapitalize="characters"
+                                    />
+                                </View>
+                            </View>
+                        </View>
 
-                    <View style={styles.row}>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Date</Text>
-                            <View style={styles.inputWrap}>
-                                <TextInput
-                                    style={styles.input}
-                                    value={date}
-                                    onChangeText={setDate}
-                                    placeholder="YYYY-MM-DD"
-                                />
-                                <FontAwesome name="calendar" size={16} color="#999" />
+                        <View style={styles.row}>
+                            <View style={styles.field}>
+                                <Text style={styles.label}>Trade Type</Text>
+                                <View style={styles.typeSelector}>
+                                    <TouchableOpacity 
+                                        style={[styles.typeBtn, tradeType === 'Buy' && styles.buyActive]} 
+                                        onPress={() => setTradeType('Buy')}
+                                    >
+                                        <Text style={[styles.typeText, tradeType === 'Buy' && styles.buyTextActive]}>Buy</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.typeBtn, tradeType === 'Sell' && styles.sellActive]} 
+                                        onPress={() => setTradeType('Sell')}
+                                    >
+                                        <Text style={[styles.typeText, tradeType === 'Sell' && styles.sellTextActive]}>Sell</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                            <View style={styles.field}>
+                                <Text style={styles.label}>Money Value ($) *</Text>
+                                <View style={styles.inputWrap}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="500.00"
+                                        keyboardType="numeric"
+                                        value={moneyValue}
+                                        onChangeText={setMoneyValue}
+                                    />
+                                </View>
                             </View>
                         </View>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Symbol *</Text>
-                            <View style={styles.inputWrap}>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="AAPL, TSLA, etc."
-                                    value={symbol}
-                                    onChangeText={setSymbol}
-                                    autoCapitalize="characters"
-                                />
-                            </View>
-                        </View>
-                    </View>
 
-                    <View style={styles.row}>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Trade Type</Text>
-                            <View style={styles.typeSelector}>
-                                <TouchableOpacity 
-                                    style={[styles.typeBtn, tradeType === 'Buy' && styles.typeBtnActive]} 
-                                    onPress={() => setTradeType('Buy')}
-                                >
-                                    <Text style={[styles.typeText, tradeType === 'Buy' && styles.typeTextActive]}>Buy</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity 
-                                    style={[styles.typeBtn, tradeType === 'Sell' && styles.typeBtnActive]} 
-                                    onPress={() => setTradeType('Sell')}
-                                >
-                                    <Text style={[styles.typeText, tradeType === 'Sell' && styles.typeTextActive]}>Sell</Text>
-                                </TouchableOpacity>
+                        <View style={styles.row}>
+                            <View style={styles.field}>
+                                <Text style={styles.label}>Entry Price ($)</Text>
+                                <View style={styles.inputWrap}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="0.00"
+                                        keyboardType="numeric"
+                                        value={entryPrice}
+                                        onChangeText={setEntryPrice}
+                                    />
+                                </View>
+                            </View>
+                            <View style={styles.field}>
+                                <Text style={styles.label}>Exit Price ($)</Text>
+                                <View style={styles.inputWrap}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="0.00"
+                                        keyboardType="numeric"
+                                        value={exitPrice}
+                                        onChangeText={setExitPrice}
+                                    />
+                                </View>
                             </View>
                         </View>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Entry Price ($)</Text>
-                            <View style={styles.inputWrap}>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="150.00 (optional)"
-                                    keyboardType="numeric"
-                                    value={entryPrice}
-                                    onChangeText={setEntryPrice}
-                                />
-                            </View>
-                        </View>
-                    </View>
 
-                    <View style={styles.row}>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Exit Price ($)</Text>
+                        <View style={styles.section}>
+                            <Text style={styles.label}>TradingView Chart Link</Text>
                             <View style={styles.inputWrap}>
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="155.00 (optional)"
-                                    keyboardType="numeric"
-                                    value={exitPrice}
-                                    onChangeText={setExitPrice}
+                                    placeholder="https://www.tradingview.com/x/..."
+                                    value={tvLink}
+                                    onChangeText={setTvLink}
+                                    autoCapitalize="none"
                                 />
+                                <FontAwesome5 name="chart-line" size={16} color="#999" />
                             </View>
                         </View>
-                        <View style={styles.field}>
-                            <Text style={styles.label}>Money Value ($) *</Text>
-                            <View style={styles.inputWrap}>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="500 (profit/loss amount)"
-                                    keyboardType="numeric"
-                                    value={moneyValue}
-                                    onChangeText={setMoneyValue}
-                                />
-                            </View>
-                        </View>
-                    </View>
 
-                    <View style={styles.section}>
-                        <Text style={styles.label}>TradingView Link</Text>
-                        <View style={styles.inputWrap}>
+                        <View style={styles.section}>
+                            <Text style={styles.label}>Notes</Text>
                             <TextInput
-                                style={styles.input}
-                                placeholder="https://www.tradingview.com/chart/..."
-                                value={tvLink}
-                                onChangeText={setTvLink}
-                                autoCapitalize="none"
+                                style={styles.textArea}
+                                placeholder="What was your reasoning for this trade?"
+                                multiline
+                                numberOfLines={4}
+                                value={notes}
+                                onChangeText={setNotes}
+                                textAlignVertical="top"
                             />
                         </View>
+
+                        {tvLink.trim().length > 0 && (
+                            <View style={styles.previewContainer}>
+                                <Text style={styles.sectionTitle}>Chart Preview</Text>
+                                <View style={styles.previewCard}>
+                                    <Image
+                                        source={{ uri: getTradingViewImageUrl(tvLink) || '' }}
+                                        style={styles.previewImage}
+                                        resizeMode="cover"
+                                    />
+                                </View>
+                            </View>
+                        )}
                     </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.label}>Notes</Text>
-                        <TextInput
-                            style={styles.textArea}
-                            placeholder="Trade notes..."
-                            multiline
-                            numberOfLines={4}
-                            value={notes}
-                            onChangeText={setNotes}
-                            textAlignVertical="top"
-                        />
-                    </View>
-
-                    {tvLink.trim().length > 0 && (
-                        <View style={styles.previewContainer}>
-                            <Text style={styles.previewLabel}>Chart Preview:</Text>
-                            <Image
-                                source={{ uri: getTradingViewImageUrl(tvLink) || '' }}
-                                style={styles.previewImage}
-                                resizeMode="cover"
-                            />
-                        </View>
-                    )}
-
-                    <View style={styles.footerBtns}>
-                        <TouchableOpacity 
-                            style={styles.cancelBtn} 
-                            onPress={() => router.back()}
-                        >
-                            <Text style={styles.cancelBtnText}>Cancel</Text>
-                        </TouchableOpacity>
+                    
+                    <View style={styles.footer}>
                         <TouchableOpacity 
                             style={[styles.submitBtn, loading && { opacity: 0.7 }]} 
                             onPress={handleCreate}
                             disabled={loading}
                         >
-                            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Add Trade</Text>}
+                            {loading ? <ActivityIndicator color="#1a1a1a" /> : <Text style={styles.submitBtnText}>Add to Journal</Text>}
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.cancelBtn} 
+                            onPress={() => router.back()}
+                        >
+                            <Text style={styles.cancelText}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
+                    <View style={{ height: 100 }} />
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -252,45 +252,52 @@ export default function CreateForecast() {
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#fff' },
-    scroll: { padding: 20, gap: 20 },
-    header: { marginBottom: 10 },
-    headerTitle: { fontSize: 24, fontWeight: '800', color: '#2D3748' },
+    header: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+    headerTitle: { fontSize: 24, fontWeight: '900', color: '#1a1a1a' },
+    headerSub: { fontSize: 14, color: '#999', fontWeight: '600', marginTop: 2 },
+    closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
+    scroll: { flex: 1 },
+    formContainer: { padding: 20, gap: 20 },
     row: { flexDirection: 'row', gap: 15 },
     field: { flex: 1, gap: 8 },
     section: { gap: 8 },
-    label: { fontSize: 14, fontWeight: '700', color: '#4A5568' },
+    label: { fontSize: 13, fontWeight: '800', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: 0.5 },
     inputWrap: { 
         flexDirection: 'row', 
         alignItems: 'center', 
-        backgroundColor: '#F7FAFC', 
-        borderRadius: 10, 
-        paddingHorizontal: 12, 
-        height: 48, 
+        backgroundColor: '#f9fafb', 
+        borderRadius: 12, 
+        paddingHorizontal: 15, 
+        height: 52, 
         borderWidth: 1, 
-        borderColor: '#E2E8F0' 
+        borderColor: '#f0f0f0' 
     },
-    input: { flex: 1, fontSize: 15, color: '#2D3748' },
-    typeSelector: { flexDirection: 'row', backgroundColor: '#F7FAFC', borderRadius: 10, height: 48, borderWidth: 1, borderColor: '#E2E8F0', padding: 4 },
-    typeBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
-    typeBtnActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
-    typeText: { fontSize: 14, fontWeight: '600', color: '#718096' },
-    typeTextActive: { color: '#2D3748' },
+    input: { flex: 1, fontSize: 15, color: '#1a1a1a', fontWeight: '600' },
+    typeSelector: { flexDirection: 'row', backgroundColor: '#f9fafb', borderRadius: 12, height: 52, borderWidth: 1, borderColor: '#f0f0f0', padding: 4 },
+    typeBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+    buyActive: { backgroundColor: '#ecfdf5' },
+    sellActive: { backgroundColor: '#fef2f2' },
+    buyTextActive: { color: '#059669', fontWeight: '800' },
+    sellTextActive: { color: '#dc2626', fontWeight: '800' },
+    typeText: { fontSize: 14, fontWeight: '700', color: '#999' },
     textArea: { 
-        backgroundColor: '#F7FAFC', 
-        borderRadius: 10, 
-        padding: 12, 
+        backgroundColor: '#f9fafb', 
+        borderRadius: 12, 
+        padding: 15, 
         fontSize: 15, 
-        color: '#2D3748', 
-        minHeight: 100, 
+        color: '#1a1a1a', 
+        fontWeight: '600',
+        minHeight: 120, 
         borderWidth: 1, 
-        borderColor: '#E2E8F0' 
+        borderColor: '#f0f0f0' 
     },
-    previewContainer: { gap: 8 },
-    previewLabel: { fontSize: 12, color: '#718096', fontWeight: '600' },
-    previewImage: { width: '100%', height: 200, borderRadius: 12, backgroundColor: '#EDF2F7' },
-    footerBtns: { flexDirection: 'row', gap: 12, marginTop: 10 },
-    cancelBtn: { flex: 1, height: 48, borderRadius: 10, backgroundColor: '#1A202C', alignItems: 'center', justifyContent: 'center' },
-    cancelBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-    submitBtn: { flex: 1, height: 48, borderRadius: 10, backgroundColor: '#4299E1', alignItems: 'center', justifyContent: 'center' },
-    submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    sectionTitle: { fontSize: 16, fontWeight: '900', color: '#1a1a1a', marginBottom: 10 },
+    previewContainer: { marginTop: 10 },
+    previewCard: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#f0f0f0' },
+    previewImage: { width: '100%', height: 200, backgroundColor: '#f9fafb' },
+    footer: { padding: 20, gap: 12 },
+    submitBtn: { height: 56, borderRadius: 16, backgroundColor: '#F5C400', alignItems: 'center', justifyContent: 'center', shadowColor: '#F5C400', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+    submitBtnText: { color: '#1a1a1a', fontSize: 16, fontWeight: '900' },
+    cancelBtn: { height: 56, alignItems: 'center', justifyContent: 'center' },
+    cancelText: { color: '#999', fontSize: 15, fontWeight: '700' },
 });

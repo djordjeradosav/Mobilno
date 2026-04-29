@@ -59,7 +59,7 @@ export default function CreateForecast() {
             p_entry_price: entryPrice ? Number(entryPrice) : 0,
             p_exit_price: exitPrice ? Number(exitPrice) : 0,
             p_money_value: Number(moneyValue),
-            p_trade_date: date,
+            p_trade_date: date || new Date().toISOString().split('T')[0],
             p_tradingview_link: tvLink.trim() || null,
             p_notes: notes.trim(),
             p_chart_image_url: tvLink.trim() || null

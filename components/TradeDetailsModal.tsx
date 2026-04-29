@@ -216,12 +216,16 @@ export default function TradeDetailsModal({
                             </View>
                         </View>
 
-                        {forecast.chart_image_url && (
-                            <Image 
-                                source={{ uri: getTradingViewImageUrl(forecast.chart_image_url) || '' }} 
-                                style={styles.chartImage} 
-                                resizeMode="cover" 
-                            />
+                        {(forecast.chart_image_url || forecast.tradingview_link) && (
+                            <View style={styles.chartWrapper}>
+                                <Image 
+                                    source={{ 
+                                        uri: getTradingViewImageUrl(forecast.chart_image_url || forecast.tradingview_link) || '' 
+                                    }} 
+                                    style={styles.chartImage} 
+                                    resizeMode="contain" 
+                                />
+                            </View>
                         )}
 
                         <View style={styles.analysisBox}>
@@ -304,7 +308,20 @@ const styles = StyleSheet.create({
     detailItem: { flex: 1 },
     detailLabel: { fontSize: 11, fontWeight: '800', color: '#A0AEC0', textTransform: 'uppercase' },
     detailValue: { fontSize: 15, fontWeight: '700', color: '#2D3748', marginTop: 4 },
-    chartImage: { width: '100%', height: 240, borderRadius: 16, backgroundColor: '#f5f5f5' },
+    chartWrapper: {
+        width: '100%',
+        height: 250,
+        borderRadius: 16,
+        backgroundColor: '#f8fafc',
+        marginVertical: 10,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    chartImage: {
+        width: '100%',
+        height: '100%',
+    },
     analysisBox: { backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 8 },
     analysisTitle: { fontSize: 13, fontWeight: '700', color: '#1a1a1a', textTransform: 'uppercase' },
     analysisText: { fontSize: 15, color: '#444', lineHeight: 23 },

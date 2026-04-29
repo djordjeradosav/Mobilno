@@ -349,6 +349,8 @@ export default function Popular() {
                 onClose={() => setModalVisible(false)}
                 onLike={() => {}}
                 isLiked={false}
+                currentUserId={user?.id}
+                onUpdate={fetchTrades}
             />
         </SafeAreaView>
     );

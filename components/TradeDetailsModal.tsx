@@ -147,7 +147,7 @@ export default function TradeDetailsModal({
     if (!forecast) return null;
 
     const user = forecast.users;
-    const isProfitable = forecast.money_value >= 0;
+    const isProfitable = (forecast.money_value || 0) >= 0;
     const isOwner = currentUserId === forecast.user_id;
 
     return (

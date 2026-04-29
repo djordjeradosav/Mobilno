@@ -40,9 +40,13 @@ export type Trade = {
   trade_date: string;
   tradingview_link: string | null;
   notes: string | null;
+  content?: string | null; // Legacy field
   chart_image_url: string | null;
   likes_count: number;
+  comments_count?: number; // Added field
   created_at: string;
+  currency_pair?: string; // Legacy field
+  profit?: number; // Legacy field
   users?: {
     username: string;
     avatar_url: string | null;

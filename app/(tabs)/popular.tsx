@@ -87,184 +87,195 @@ export default function Popular() {
         setRefreshing(false);
     }, [fetchTrades]);
 
-    // Calendar Helper Functions
+    // Calendar logic
     const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
     const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
 
     const calendarData = useMemo(() => {
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth();
-        const numDays = daysInMonth(year, month);
-        const startDay = firstDayOfMonth(year, month);
+        const days = daysInMonth(year, month);
+        const firstDay = firstDayOfMonth(year, month);
         
+        const grid = [];
+        // Empty cells for first week
+        for (let i = 0; i < firstDay; i++) {
+            grid.push({ day: null });
+        }
+        
+        // Actual days
+        for (let d = 1; d <= days; d++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const dayTrades = trades.filter(t => t.trade_date === dateStr);
+            const totalPL = dayTrades.reduce((sum, t) => sum + (t.money_value || 0), 0);
+            
+            grid.push({
+                day: d,
+                date: dateStr,
+                trades: dayTrades.length,
+                pl: totalPL
+            });
+        }
+        
+        return grid;
+    }, [currentMonth, trades]);
+
+    // Weekly P/L
+    const weeklyPL = useMemo(() => {
         const weeks = [];
-        let currentWeek = Array(7).fill(null);
+        let currentWeekPL = 0;
         
-        for (let i = 0; i < startDay; i++) {
-            currentWeek[i] = null;
-        }
-        
-        for (let day = 1; day <= numDays; day++) {
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const dayTrades = trades.filter(t => (t.trade_date || t.created_at.split('T')[0]) === dateStr);
-            const pl = dayTrades.reduce((sum, t) => sum + (t.money_value || 0), 0);
-            
-            const dayIdx = (startDay + day - 1) % 7;
-            currentWeek[dayIdx] = { day, date: dateStr, trades: dayTrades, pl };
-            
-            if (dayIdx === 6 || day === numDays) {
-                weeks.push(currentWeek);
-                currentWeek = Array(7).fill(null);
+        calendarData.forEach((day, index) => {
+            if (day.day) {
+                currentWeekPL += day.pl || 0;
             }
-        }
-        
-        return weeks;
-    }, [currentMonth, trades]);
-
-    const monthlyStats = useMemo(() => {
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth();
-        const monthTrades = trades.filter(t => {
-            const d = new Date(t.trade_date || t.created_at);
-            return d.getFullYear() === year && d.getMonth() === month;
+            if ((index + 1) % 7 === 0 || index === calendarData.length - 1) {
+                weeks.push(currentWeekPL);
+                currentWeekPL = 0;
+            }
         });
-        const pl = monthTrades.reduce((sum, t) => sum + (t.money_value || 0), 0);
-        return { pl, count: monthTrades.length };
-    }, [currentMonth, trades]);
+        return weeks;
+    }, [calendarData]);
 
-    const cumulativeData = useMemo(() => {
-        const sorted = [...trades].sort((a, b) => new Date(a.trade_date || a.created_at).getTime() - new Date(b.trade_date || b.created_at).getTime());
-        let current = 0;
-        return sorted.map(t => {
-            current += (t.money_value || 0);
-            return current;
+    // Monthly Totals
+    const monthlyPL = useMemo(() => trades.reduce((sum, t) => sum + (t.money_value || 0), 0), [trades]);
+    const totalTrades = trades.length;
+
+    // Cumulative Data for Chart
+    const chartData = useMemo(() => {
+        let cumulative = 0;
+        const sortedTrades = [...trades].sort((a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime());
+        return sortedTrades.map(t => {
+            cumulative += (t.money_value || 0);
+            return cumulative;
         });
     }, [trades]);
 
-    const renderEquityCurve = () => {
-        if (cumulativeData.length < 2) return null;
-        const h = 100;
-        const w = SCREEN_WIDTH - 64;
-        const min = Math.min(...cumulativeData, 0);
-        const max = Math.max(...cumulativeData, 100);
-        const range = max - min;
-        
-        const points = cumulativeData.map((val, i) => {
-            const x = (i / (cumulativeData.length - 1)) * w;
-            const y = h - ((val - min) / range) * h;
-            return `${x},${y}`;
-        }).join(' ');
-
-        return (
-            <View style={styles.chartContainer}>
-                <Text style={styles.sectionTitle}>Cumulative Performance</Text>
-                <Svg height={h} width={w}>
-                    <Polyline
-                        points={points}
-                        fill="none"
-                        stroke="#4299E1"
-                        strokeWidth="2"
-                    />
-                </Svg>
-            </View>
-        );
-    };
+    const filteredTrades = useMemo(() => {
+        return trades.filter(t => t.trade_date === selectedDate);
+    }, [trades, selectedDate]);
 
     return (
         <SafeAreaView style={styles.root} edges={['top']}>
             <ScrollView 
-                style={styles.container} 
-                showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4299E1" />}
+                style={styles.scroll}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F5C400" />}
             >
                 <View style={styles.header}>
                     <Text style={styles.monthTitle}>
-                        {currentMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                        {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
                     </Text>
                     <View style={styles.headerActions}>
                         <TouchableOpacity onPress={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))}>
-                            <FontAwesome name="chevron-left" size={16} color="#4A5568" />
+                            <MaterialIcons name="chevron-left" size={28} color="#1a1a1a" />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.todayBtn} onPress={() => setCurrentMonth(new Date())}>
+                        <TouchableOpacity 
+                            style={styles.todayBtn}
+                            onPress={() => {
+                                const today = new Date();
+                                setCurrentMonth(today);
+                                setSelectedDate(today.toISOString().split('T')[0]);
+                            }}
+                        >
                             <Text style={styles.todayText}>Today</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))}>
-                            <FontAwesome name="chevron-right" size={16} color="#4A5568" />
+                            <MaterialIcons name="chevron-right" size={28} color="#1a1a1a" />
                         </TouchableOpacity>
                     </View>
                 </View>
 
-                <View style={styles.calendarGrid}>
-                    <View style={styles.weekHeader}>
+                {/* Custom Calendar Grid */}
+                <View style={styles.calendarContainer}>
+                    <View style={styles.weekLabels}>
                         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'P&L'].map(d => (
-                            <Text key={d} style={styles.weekDayText}>{d}</Text>
+                            <Text key={d} style={styles.weekLabel}>{d}</Text>
                         ))}
                     </View>
                     
-                    {calendarData.map((week, i) => {
-                        const weekPL = week.reduce((sum, d) => sum + (d?.pl || 0), 0);
-                        return (
-                            <View key={i} style={styles.weekRow}>
-                                {week.map((dayData, j) => (
-                                    <TouchableOpacity 
-                                        key={j} 
-                                        style={[
-                                            styles.dayCell, 
-                                            dayData?.pl > 0 && styles.dayProfit,
-                                            dayData?.pl < 0 && styles.dayLoss,
-                                            dayData?.date === selectedDate && styles.daySelected
-                                        ]}
-                                        onPress={() => dayData && setSelectedDate(dayData.date)}
-                                    >
-                                        <Text style={styles.dayNum}>{dayData?.day}</Text>
-                                        {dayData && dayData.trades.length > 0 && (
+                    <View style={styles.grid}>
+                        {calendarData.map((item, i) => (
+                            <TouchableOpacity 
+                                key={i} 
+                                style={[
+                                    styles.dayCell,
+                                    item.date === selectedDate && styles.selectedCell,
+                                    item.day && item.pl > 0 && styles.profitCell,
+                                    item.day && item.pl < 0 && styles.lossCell,
+                                ]}
+                                disabled={!item.day}
+                                onPress={() => setSelectedDate(item.date!)}
+                            >
+                                {item.day && (
+                                    <>
+                                        <Text style={styles.dayNum}>{item.day}</Text>
+                                        {item.trades > 0 && (
                                             <>
-                                                <Text style={[styles.dayPL, { color: dayData.pl >= 0 ? '#2F855A' : '#C53030' }]}>
-                                                    ${Math.abs(dayData.pl).toFixed(0)}
+                                                <Text style={[styles.cellPL, { color: (item.pl || 0) >= 0 ? '#059669' : '#dc2626' }]}>
+                                                    ${Math.abs(item.pl || 0).toFixed(0)}
                                                 </Text>
-                                                <Text style={styles.dayTradeCount}>{dayData.trades.length} trade{dayData.trades.length > 1 ? 's' : ''}</Text>
+                                                <Text style={styles.cellTrades}>{item.trades} trade{item.trades > 1 ? 's' : ''}</Text>
                                             </>
                                         )}
-                                    </TouchableOpacity>
-                                ))}
-                                <View style={[styles.dayCell, styles.weekPLCell, { backgroundColor: weekPL >= 0 ? '#F0FFF4' : '#FFF5F5' }]}>
-                                    <Text style={styles.weekPLTitle}>Week</Text>
-                                    <Text style={[styles.weekPLValue, { color: weekPL >= 0 ? '#2F855A' : '#C53030' }]}>
-                                        {weekPL >= 0 ? '+' : '-'}${Math.abs(weekPL).toFixed(0)}
-                                    </Text>
-                                </View>
-                            </View>
-                        );
-                    })}
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                        
+                        {/* Weekly P/L column is handled by the grid layout */}
+                    </View>
                 </View>
 
-                <View style={styles.monthlyFooter}>
-                    <View style={styles.statBox}>
-                        <Text style={styles.statLabel}>Monthly P&L</Text>
-                        <Text style={[styles.statValue, { color: monthlyStats.pl >= 0 ? '#2F855A' : '#C53030' }]}>
-                            ${monthlyStats.pl.toFixed(2)}
+                {/* Summary Footer */}
+                <View style={styles.summary}>
+                    <View style={styles.summaryItem}>
+                        <Text style={styles.summaryLabel}>Monthly P&L</Text>
+                        <Text style={[styles.summaryVal, { color: monthlyPL >= 0 ? '#059669' : '#dc2626' }]}>
+                            {monthlyPL >= 0 ? '+' : '-'}${Math.abs(monthlyPL).toFixed(2)}
                         </Text>
                     </View>
-                    <View style={styles.statBox}>
-                        <Text style={styles.statLabel}>Total Trades</Text>
-                        <Text style={styles.statValue}>{monthlyStats.count}</Text>
+                    <View style={styles.summaryItem}>
+                        <Text style={styles.summaryLabel}>Total Trades</Text>
+                        <Text style={styles.summaryVal}>{totalTrades}</Text>
                     </View>
-                    <Text style={styles.clickHint}>Click on any date to view trades</Text>
                 </View>
 
-                {renderEquityCurve()}
-
-                <View style={styles.historySection}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Trades for {selectedDate}</Text>
-                        <View style={[styles.plBadge, { backgroundColor: trades.filter(t => (t.trade_date || t.created_at.split('T')[0]) === selectedDate).reduce((sum, t) => sum + (t.money_value || 0), 0) >= 0 ? '#F0FFF4' : '#FFF5F5' }]}>
-                            <Text style={[styles.plBadgeText, { color: trades.filter(t => (t.trade_date || t.created_at.split('T')[0]) === selectedDate).reduce((sum, t) => sum + (t.money_value || 0), 0) >= 0 ? '#2F855A' : '#C53030' }]}>
-                                ${trades.filter(t => (t.trade_date || t.created_at.split('T')[0]) === selectedDate).reduce((sum, t) => sum + (t.money_value || 0), 0).toFixed(2)}
-                            </Text>
+                {/* Chart Section */}
+                {chartData.length > 1 && (
+                    <View style={styles.chartSection}>
+                        <Text style={styles.sectionTitle}>Cumulative Performance</Text>
+                        <View style={styles.chartWrap}>
+                            <Svg height="150" width={SCREEN_WIDTH - 40}>
+                                {chartData.map((val, i) => {
+                                    if (i === 0) return null;
+                                    const prev = chartData[i-1];
+                                    const max = Math.max(...chartData, 1);
+                                    const min = Math.min(...chartData, -1);
+                                    const range = max - min;
+                                    
+                                    const x1 = ((i-1) / (chartData.length - 1)) * (SCREEN_WIDTH - 40);
+                                    const x2 = (i / (chartData.length - 1)) * (SCREEN_WIDTH - 40);
+                                    const y1 = 150 - ((prev - min) / range) * 150;
+                                    const y2 = 150 - ((val - min) / range) * 150;
+                                    
+                                    return (
+                                        <Line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#F5C400" strokeWidth="3" />
+                                    );
+                                })}
+                            </Svg>
                         </View>
                     </View>
-                    {trades.filter(t => (t.trade_date || t.created_at.split('T')[0]) === selectedDate).length > 0 ? (
-                        trades.filter(t => (t.trade_date || t.created_at.split('T')[0]) === selectedDate).map(trade => (
+                )}
+
+                {/* Selected Date Trades */}
+                <View style={styles.historySection}>
+                    <Text style={styles.sectionTitle}>Trades on {new Date(selectedDate).toLocaleDateString()}</Text>
+                    {filteredTrades.length === 0 ? (
+                        <View style={styles.emptyState}>
+                            <Text style={styles.emptyText}>No trades recorded for this day.</Text>
+                        </View>
+                    ) : (
+                        filteredTrades.map(trade => (
                             <TouchableOpacity 
                                 key={trade.id} 
                                 style={styles.historyItem}
@@ -272,50 +283,31 @@ export default function Popular() {
                             >
                                 <View style={styles.historyMain}>
                                     <Text style={styles.historySymbol}>{trade.symbol}</Text>
-                                    <Text style={styles.historyType}>{trade.trade_type} @ {trade.entry_price || '—'}</Text>
+                                    <View style={[styles.typeTag, { backgroundColor: trade.trade_type === 'Buy' ? '#EBF8FF' : '#FFF5F5' }]}>
+                                        <Text style={[styles.typeTagText, { color: trade.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]}>
+                                            {trade.trade_type}
+                                        </Text>
+                                    </View>
                                 </View>
-                                <View style={styles.historyRight}>
-                                    <Text style={[styles.historyPL, { color: (trade.money_value || 0) >= 0 ? '#2F855A' : '#C53030' }]}>
-                                        {(trade.money_value || 0) >= 0 ? '+' : ''}${trade.money_value?.toFixed(2)}
-                                    </Text>
-                                    <Text style={styles.historyDate}>{trade.created_at.split('T')[1].slice(0, 5)}</Text>
+                                <View style={styles.historyPrices}>
+                                    <Text style={styles.priceLabel}>Entry: ${trade.entry_price || '0.00'}</Text>
+                                    <Text style={styles.priceLabel}>Exit: ${trade.exit_price || '0.00'}</Text>
                                 </View>
+                                <Text style={[styles.historyPL, { color: trade.money_value >= 0 ? '#059669' : '#dc2626' }]}>
+                                    {trade.money_value >= 0 ? '+' : '-'}${Math.abs(trade.money_value).toFixed(2)}
+                                </Text>
                             </TouchableOpacity>
                         ))
-                    ) : (
-                        <Text style={styles.emptyText}>No trades for this date.</Text>
                     )}
-
-                    <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Recent History</Text>
-                    {trades.slice(0, 10).map(trade => (
-                        <TouchableOpacity 
-                            key={trade.id} 
-                            style={styles.historyItem}
-                            onPress={() => { setSelectedTrade(trade); setModalVisible(true); }}
-                        >
-                            <View style={styles.historyMain}>
-                                <Text style={styles.historySymbol}>{trade.symbol}</Text>
-                                <Text style={styles.historyDate}>{trade.trade_date || trade.created_at.split('T')[0]}</Text>
-                            </View>
-                            <View style={styles.historyRight}>
-                                <Text style={[styles.historyPL, { color: (trade.money_value || 0) >= 0 ? '#2F855A' : '#C53030' }]}>
-                                    {(trade.money_value || 0) >= 0 ? '+' : ''}${trade.money_value?.toFixed(2)}
-                                </Text>
-                                <Text style={styles.historyType}>{trade.trade_type}</Text>
-                            </View>
-                        </TouchableOpacity>
-                    ))}
                 </View>
             </ScrollView>
 
-            <TradeDetailsModal
+            <TradeDetailsModal 
                 visible={modalVisible}
                 forecast={selectedTrade}
                 onClose={() => setModalVisible(false)}
                 onLike={() => {}}
                 isLiked={false}
-                currentUserId={user?.id}
-                onUpdate={fetchTrades}
             />
         </SafeAreaView>
     );
@@ -323,43 +315,60 @@ export default function Popular() {
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#fff' },
-    container: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
-    monthTitle: { fontSize: 22, fontWeight: '800', color: '#2D3748' },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 15 },
-    todayBtn: { backgroundColor: '#4299E1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-    todayText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-    calendarGrid: { paddingHorizontal: 10 },
-    weekHeader: { flexDirection: 'row', marginBottom: 10 },
-    weekDayText: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600', color: '#A0AEC0' },
-    weekRow: { flexDirection: 'row', marginBottom: 8, gap: 4 },
-    dayCell: { flex: 1, height: 70, backgroundColor: '#F7FAFC', borderRadius: 10, padding: 4, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#EDF2F7' },
-    dayNum: { fontSize: 11, fontWeight: '700', color: '#4A5568', position: 'absolute', top: 4, left: 4 },
-    dayPL: { fontSize: 12, fontWeight: '800', marginTop: 10 },
-    dayTradeCount: { fontSize: 9, color: '#718096', fontWeight: '500' },
-    dayProfit: { backgroundColor: '#F0FFF4', borderColor: '#C6F6D5' },
-    dayLoss: { backgroundColor: '#FFF5F5', borderColor: '#FED7D7' },
-    daySelected: { borderColor: '#4299E1', borderWidth: 2 },
-    weekPLCell: { borderLeftWidth: 2, borderLeftColor: '#E2E8F0' },
-    weekPLTitle: { fontSize: 9, fontWeight: '700', color: '#A0AEC0', textTransform: 'uppercase' },
-    weekPLValue: { fontSize: 12, fontWeight: '800' },
-    monthlyFooter: { flexDirection: 'row', padding: 20, backgroundColor: '#F0FFF4', margin: 16, borderRadius: 16, alignItems: 'center', gap: 20 },
-    statBox: { gap: 4 },
-    statLabel: { fontSize: 12, fontWeight: '600', color: '#2F855A' },
-    statValue: { fontSize: 20, fontWeight: '800' },
-    clickHint: { flex: 1, textAlign: 'right', fontSize: 12, color: '#718096', fontStyle: 'italic' },
-    chartContainer: { padding: 20, gap: 12 },
-    sectionTitle: { fontSize: 18, fontWeight: '800', color: '#2D3748' },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    plBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-    plBadgeText: { fontSize: 14, fontWeight: '800' },
-    historySection: { padding: 20, gap: 12, paddingBottom: 40 },
-    emptyText: { color: '#A0AEC0', fontSize: 14, fontStyle: 'italic' },
-    historyItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#F7FAFC', borderRadius: 12 },
-    historyMain: { gap: 2 },
-    historySymbol: { fontSize: 16, fontWeight: '700', color: '#2D3748' },
-    historyDate: { fontSize: 12, color: '#718096' },
-    historyRight: { alignItems: 'flex-end', gap: 2 },
-    historyPL: { fontSize: 16, fontWeight: '800' },
-    historyType: { fontSize: 11, fontWeight: '700', color: '#A0AEC0' },
+    scroll: { flex: 1 },
+    header: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    monthTitle: { fontSize: 22, fontWeight: '900', color: '#1a1a1a' },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    todayBtn: { backgroundColor: '#3b82f6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+    todayText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+    calendarContainer: { paddingHorizontal: 10 },
+    weekLabels: { flexDirection: 'row', marginBottom: 10 },
+    weekLabel: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', color: '#999' },
+    grid: { flexDirection: 'row', flexWrap: 'wrap' },
+    dayCell: { 
+        width: (SCREEN_WIDTH - 20) / 8, 
+        height: 80, 
+        borderWidth: 0.5, 
+        borderColor: '#f0f0f0', 
+        padding: 4,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    selectedCell: { borderColor: '#3b82f6', borderWidth: 2, borderRadius: 8 },
+    profitCell: { backgroundColor: '#ecfdf5' },
+    lossCell: { backgroundColor: '#fef2f2' },
+    dayNum: { fontSize: 12, fontWeight: '700', color: '#1a1a1a', position: 'absolute', top: 4, left: 4 },
+    cellPL: { fontSize: 11, fontWeight: '800', marginTop: 10 },
+    cellTrades: { fontSize: 9, color: '#666', fontWeight: '500' },
+    summary: { 
+        flexDirection: 'row', 
+        backgroundColor: '#ecfdf5', 
+        margin: 20, 
+        padding: 20, 
+        borderRadius: 16,
+        justifyContent: 'space-between'
+    },
+    summaryItem: { gap: 4 },
+    summaryLabel: { fontSize: 13, fontWeight: '700', color: '#065f46' },
+    summaryVal: { fontSize: 20, fontWeight: '900' },
+    chartSection: { padding: 20 },
+    sectionTitle: { fontSize: 18, fontWeight: '900', color: '#1a1a1a', marginBottom: 16 },
+    chartWrap: { height: 150, backgroundColor: '#fafafa', borderRadius: 16, justifyContent: 'center' },
+    historySection: { padding: 20, paddingBottom: 100 },
+    historyItem: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        paddingVertical: 16, 
+        borderBottomWidth: 1, 
+        borderBottomColor: '#f5f5f5' 
+    },
+    historyMain: { flex: 1, gap: 4 },
+    historySymbol: { fontSize: 16, fontWeight: '800', color: '#1a1a1a' },
+    typeTag: { alignSelf: 'flex-start', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    typeTagText: { fontSize: 10, fontWeight: '800' },
+    historyPrices: { flex: 1, gap: 2 },
+    priceLabel: { fontSize: 11, color: '#999', fontWeight: '600' },
+    historyPL: { fontSize: 16, fontWeight: '900' },
+    emptyState: { padding: 40, alignItems: 'center' },
+    emptyText: { color: '#999', fontWeight: '600' }
 });

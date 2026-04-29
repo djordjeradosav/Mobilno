@@ -15,7 +15,7 @@ import {
     Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Svg, Path, Rect, Line, Polyline } from 'react-native-svg';
+import { Svg, Path, Rect, Line, Polyline, G, Text as SvgText } from 'react-native-svg';
 import { Trade } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
 
@@ -368,7 +368,7 @@ export default function Popular() {
                                             const lossesHeight = (data.losses / maxValue) * 160;
                                             const x = idx * spacing + 10;
                                             return (
-                                                <g key={month}>
+                                                <G key={month}>
                                                     {/* Wins bar (green) */}
                                                     <Rect
                                                         x={x}
@@ -388,10 +388,10 @@ export default function Popular() {
                                                         rx="4"
                                                     />
                                                     {/* Month label */}
-                                                    <Text x={x + barWidth * 0.5} y="175" fontSize="11" fill="#999" textAnchor="middle">
+                                                    <SvgText x={x + barWidth * 0.5} y="175" fontSize="11" fill="#999" textAnchor="middle">
                                                         {month.substring(5)}
-                                                    </Text>
-                                                </g>
+                                                    </SvgText>
+                                                </G>
                                             );
                                         })}
                                     </>

@@ -192,33 +192,42 @@ export default function Popular() {
                     
                     <View style={styles.grid}>
                         {calendarGrid.map((item, i) => {
-                            if (item.isWeekTotal) {
+                            // Ensure pl is always a number for calculations
+                            const safePL = item?.pl || 0;
+                            const safeTrades = item?.trades || 0;
+
+                            if (item?.isWeekTotal) {
                                 return (
                                     <View key={`week-${i}`} style={[styles.dayCell, styles.weekTotalCell]}>
-                                        <Text style={[styles.cellPL, { color: (item.pl || 0) >= 0 ? '#059669' : '#dc2626' }]}>
-                                            ${Math.abs(item.pl || 0).toFixed(0)}
+                                        <Text style={[styles.cellPL, { color: safePL >= 0 ? '#059669' : '#dc2626' }]}>
+                                            ${Math.abs(safePL).toFixed(0)}
                                         </Text>
                                     </View>
                                 );
                             }
+                            
+                            const isSelected = item?.date && item.date === selectedDate;
+                            const isProfit = item?.day !== null && safePL > 0;
+                            const isLoss = item?.day !== null && safePL < 0;
+
                             return (
                                 <TouchableOpacity 
                                     key={i} 
                                     style={[
                                         styles.dayCell,
-                                        item.date === selectedDate && styles.selectedCell,
-                                        (item.day !== null && (item.pl || 0) > 0) && styles.profitCell,
-                                        (item.day !== null && (item.pl || 0) < 0) && styles.lossCell,
+                                        isSelected && styles.selectedCell,
+                                        isProfit && styles.profitCell,
+                                        isLoss && styles.lossCell,
                                     ]}
-                                    disabled={!item.day}
-                                    onPress={() => item.date && setSelectedDate(item.date)}
+                                    disabled={!item?.day}
+                                    onPress={() => item?.date && setSelectedDate(item.date)}
                                 >
-                                    {item.day && (
+                                    {item?.day && (
                                         <>
                                             <Text style={styles.dayNum}>{item.day}</Text>
-                                            {item.trades > 0 && (
-                                                <Text style={[styles.miniPL, { color: (item.pl || 0) >= 0 ? '#059669' : '#dc2626' }]}>
-                                                    ${Math.abs(item.pl || 0).toFixed(0)}
+                                            {safeTrades > 0 && (
+                                                <Text style={[styles.miniPL, { color: safePL >= 0 ? '#059669' : '#dc2626' }]}>
+                                                    ${Math.abs(safePL).toFixed(0)}
                                                 </Text>
                                             )}
                                         </>

@@ -41,38 +41,18 @@ export default function Popular() {
     const fetchTrades = useCallback(async () => {
         if (!user?.id) return;
         try {
-            // Fetch from both 'trades' and 'forecasts' tables
-            const [tradesRes, forecastsRes] = await Promise.all([
-                supabase
-                    .from('trades')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('trade_date', { ascending: false }),
-                supabase
-                    .from('forecasts')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: false })
-            ]);
+            // Fetch only from 'trades' table (which now includes forecasts)
+            const tradesRes = await supabase
+                .from('trades')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('trade_date', { ascending: false });
 
             if (tradesRes.error) {
                 console.error('[fetchTrades] Trades Fetch Error:', tradesRes.error.message);
             }
-            if (forecastsRes.error) {
-                console.error('[fetchTrades] Forecasts Fetch Error:', forecastsRes.error.message);
-            }
 
-            const tradesData = tradesRes.data || [];
-            const forecastsData = (forecastsRes.data || []).map(f => ({
-                ...f,
-                // Map forecast fields to trade fields for the calendar
-                symbol: f.currency_pair || 'Unknown',
-                money_value: f.profit || 0,
-                trade_date: f.created_at, // Use created_at as trade_date for forecasts
-                trade_type: f.profit >= 0 ? 'Buy' : 'Sell', // Heuristic mapping
-            }));
-
-            const allTrades = [...tradesData, ...forecastsData];
+            const allTrades = tradesRes.data || [];
 
             if (allTrades.length > 0) {
                 const userIds = [...new Set(allTrades.map(t => t.user_id))];
@@ -88,6 +68,8 @@ export default function Popular() {
 
                 const combinedTrades = allTrades.map(t => ({
                     ...t,
+                    // Ensure trade_date is in YYYY-MM-DD format for calendar
+                    trade_date: t.trade_date ? (typeof t.trade_date === 'string' ? t.trade_date.split('T')[0] : t.trade_date) : new Date().toISOString().split('T')[0],
                     users: userMap[t.user_id] || { username: 'Trader', avatar_url: null, is_verified: false }
                 }));
                 setTrades(combinedTrades as Trade[]);
@@ -132,7 +114,8 @@ export default function Popular() {
             // Filter trades by date, ensuring we handle potential time components in trade_date
             const dayTrades = trades.filter(t => {
                 if (!t.trade_date) return false;
-                const tDate = t.trade_date.split('T')[0];
+                // Normalize trade_date to YYYY-MM-DD format
+                const tDate = typeof t.trade_date === 'string' ? t.trade_date.split('T')[0] : t.trade_date;
                 return tDate === dateStr;
             });
             const totalPL = dayTrades.reduce((sum, t) => sum + (t.money_value || 0), 0);
@@ -165,7 +148,11 @@ export default function Popular() {
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth();
         const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
-        return trades.filter(t => t.trade_date && t.trade_date.startsWith(monthStr));
+        return trades.filter(t => {
+            if (!t.trade_date) return false;
+            const tDate = typeof t.trade_date === 'string' ? t.trade_date.split('T')[0] : t.trade_date;
+            return tDate.startsWith(monthStr);
+        });
     }, [trades, currentMonth]);
 
     const monthlyPL = useMemo(() => monthlyTrades.reduce((sum, t) => sum + (t.money_value || 0), 0), [monthlyTrades]);
@@ -173,7 +160,11 @@ export default function Popular() {
 
     const chartData = useMemo(() => {
         let cumulative = 0;
-        const sortedTrades = [...trades].sort((a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime());
+        const sortedTrades = [...trades].sort((a, b) => {
+            const dateA = new Date(typeof a.trade_date === 'string' ? a.trade_date : new Date().toISOString()).getTime();
+            const dateB = new Date(typeof b.trade_date === 'string' ? b.trade_date : new Date().toISOString()).getTime();
+            return dateA - dateB;
+        });
         return sortedTrades.map(t => {
             cumulative += (t.money_value || 0);
             return cumulative;
@@ -181,8 +172,12 @@ export default function Popular() {
     }, [trades]);
 
     const filteredTrades = useMemo(() => {
-        return trades.filter(t => t.trade_date && t.trade_date.split('T')[0] === selectedDate);
-    }, [trades, selectedDate]);
+        return trades.filter(t => {
+            if (!t.trade_date) return false;
+            const tDate = typeof t.trade_date === 'string' ? t.trade_date.split('T')[0] : t.trade_date;
+            return tDate === selectedDate;
+        });
+    }, [trades, selectedDate]);}
 
     if (loading) {
         return (

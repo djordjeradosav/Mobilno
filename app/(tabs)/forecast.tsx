@@ -65,18 +65,16 @@ export default function CreateForecast() {
             // In a real app, you'd probably want to store both.
         }
 
-        const { error } = await supabase.rpc('create_forecast_v3', {
-            p_content: notes.trim(),
-            p_currency_pair: symbol.trim().toUpperCase(),
-            p_profit: profitPct,
-            p_chart_image_url: tvLink.trim() || null,
-            p_trade_date: date,
+        const { error } = await supabase.rpc('add_new_trade', {
+            p_symbol: symbol.trim().toUpperCase(),
             p_trade_type: tradeType,
             p_entry_price: entryPrice ? Number(entryPrice) : null,
             p_exit_price: exitPrice ? Number(exitPrice) : null,
             p_money_value: Number(moneyValue),
+            p_trade_date: date,
             p_tradingview_link: tvLink.trim() || null,
-            p_notes: notes.trim()
+            p_notes: notes.trim(),
+            p_chart_image_url: tvLink.trim() || null
         });
 
         setLoading(false);

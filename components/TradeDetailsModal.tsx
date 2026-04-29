@@ -1,61 +1,37 @@
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
+    View,
+    Text,
+    StyleSheet,
+    Modal,
+    TouchableOpacity,
     Animated,
     Dimensions,
-    Image,
-    Modal,
-    PanResponder,
     ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+    PanResponder,
     TextInput,
-    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
+    Image,
 } from 'react-native';
-import { Forecast, getTradingViewImageUrl } from './ForecastCard';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
+import { Trade, getTradingViewImageUrl } from './ForecastCard';
+import Avatar from './Avatar';
 
 const { height: SCREEN_H } = Dimensions.get('window');
-const SHEET_H = SCREEN_H * 0.9;
-
-type Comment = {
-    id: string;
-    content: string;
-    created_at: string;
-    user_id: string;
-    users: {
-        username: string;
-        avatar_url: string | null;
-    };
-};
+const SHEET_H = SCREEN_H * 0.85;
 
 type Props = {
     visible: boolean;
-    forecast: Forecast | null;
+    forecast: Trade | null;
     onClose: () => void;
-    onLike: (id: string) => void;
+    onLike: () => void;
     isLiked: boolean;
     currentUserId?: string;
     onUpdate?: () => void;
 };
-
-function Avatar({ url, username, size = 32 }: { url?: string | null; username: string; size?: number }) {
-    if (url) {
-        return <Image source={{ uri: url }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
-    }
-    return (
-        <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#F5C400', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: size * 0.4, fontWeight: '800', color: '#1a1a1a' }}>
-                {username?.[0]?.toUpperCase() ?? '?'}
-            </Text>
-        </View>
-    );
-}
 
 export default function TradeDetailsModal({
     visible,
@@ -68,36 +44,31 @@ export default function TradeDetailsModal({
 }: Props) {
     const slideAnim = useRef(new Animated.Value(SHEET_H)).current;
     const backdropAnim = useRef(new Animated.Value(0)).current;
-
-    const [comments, setComments] = useState<Comment[]>([]);
-    const [newComment, setNewComment] = useState('');
-    const [loadingComments, setLoadingComments] = useState(false);
-    const [submittingComment, setSubmittingComment] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState('');
+    const [comments, setComments] = useState<any[]>([]);
+    const [newComment, setNewComment] = useState('');
+    const [submittingComment, setSubmittingComment] = useState(false);
 
     const fetchComments = useCallback(async () => {
         if (!forecast?.id) return;
-        setLoadingComments(true);
         const { data, error } = await supabase
             .from('comments')
             .select('*, users(username, avatar_url)')
-            .eq('forecast_id', forecast.id)
+            .eq('trade_id', forecast.id)
             .order('created_at', { ascending: true });
 
-        if (error) console.error('[fetchComments]', error.message);
-        if (data) setComments(data as Comment[]);
-        setLoadingComments(false);
+        if (!error && data) setComments(data);
     }, [forecast?.id]);
 
     useEffect(() => {
         if (visible) {
-            fetchComments();
-            setEditContent(forecast?.content || '');
+            setEditContent(forecast?.notes || '');
             setIsEditing(false);
+            fetchComments();
             Animated.parallel([
-                Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
-                Animated.timing(backdropAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
+                Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+                Animated.timing(backdropAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
             ]).start();
         } else {
             Animated.parallel([
@@ -105,7 +76,7 @@ export default function TradeDetailsModal({
                 Animated.timing(backdropAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
             ]).start();
         }
-    }, [visible, fetchComments, forecast?.content]);
+    }, [visible, fetchComments, forecast?.notes]);
 
     const handleAddComment = async () => {
         if (!newComment.trim() || !currentUserId || !forecast?.id) return;
@@ -113,7 +84,7 @@ export default function TradeDetailsModal({
         const { error } = await supabase
             .from('comments')
             .insert({
-                forecast_id: forecast.id,
+                trade_id: forecast.id,
                 user_id: currentUserId,
                 content: newComment.trim()
             });
@@ -123,37 +94,36 @@ export default function TradeDetailsModal({
         } else {
             setNewComment('');
             fetchComments();
-            await supabase.rpc('increment_comments', { forecast_id: forecast.id });
         }
         setSubmittingComment(false);
     };
 
-    const handleUpdateForecast = async () => {
+    const handleUpdateTrade = async () => {
         if (!forecast?.id || !editContent.trim()) return;
         const { error } = await supabase
-            .from('forecasts')
-            .update({ content: editContent.trim() })
+            .from('trades')
+            .update({ notes: editContent.trim() })
             .eq('id', forecast.id);
 
         if (error) {
-            Alert.alert('Error', 'Could not update forecast');
+            Alert.alert('Error', 'Could not update trade');
         } else {
             setIsEditing(false);
             if (onUpdate) onUpdate();
-            Alert.alert('Success', 'Forecast updated');
+            Alert.alert('Success', 'Trade updated');
         }
     };
 
-    const handleDeleteForecast = async () => {
+    const handleDeleteTrade = async () => {
         if (!forecast?.id) return;
-        Alert.alert('Delete Forecast', 'Are you sure you want to delete this post?', [
+        Alert.alert('Delete Trade', 'Are you sure you want to delete this trade?', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Delete',
                 style: 'destructive',
                 onPress: async () => {
-                    const { error } = await supabase.from('forecasts').delete().eq('id', forecast.id);
-                    if (error) Alert.alert('Error', 'Could not delete forecast');
+                    const { error } = await supabase.from('trades').delete().eq('id', forecast.id);
+                    if (error) Alert.alert('Error', 'Could not delete trade');
                     else {
                         onClose();
                         if (onUpdate) onUpdate();
@@ -177,7 +147,7 @@ export default function TradeDetailsModal({
     if (!forecast) return null;
 
     const user = forecast.users;
-    const isProfitable = forecast.profit >= 0;
+    const isProfitable = forecast.money_value >= 0;
     const isOwner = currentUserId === forecast.user_id;
 
     return (
@@ -200,18 +170,18 @@ export default function TradeDetailsModal({
                             <Avatar url={user?.avatar_url} username={user?.username ?? '?'} size={44} />
                             <View style={styles.headerInfo}>
                                 <View style={styles.usernameRow}>
-                                    <Text style={styles.username}>@{user?.username ?? 'unknown'}</Text>
-                                    {user?.is_verified && <MaterialIcons name="verified" size={16} color="#F5C400" />}
+                                    <Text style={styles.username}>{user?.username ?? 'Trader'}</Text>
+                                    {user?.is_verified && <MaterialIcons name="verified" size={14} color="#F5C400" />}
                                 </View>
-                                <Text style={styles.timestamp}>{new Date(forecast.created_at).toLocaleString()}</Text>
+                                <Text style={styles.timestamp}>{new Date(forecast.created_at).toLocaleDateString()}</Text>
                             </View>
                             {isOwner && (
                                 <View style={styles.ownerActions}>
-                                    <TouchableOpacity onPress={() => setIsEditing(!isEditing)} style={styles.iconBtn}>
-                                        <FontAwesome name="edit" size={18} color="#666" />
+                                    <TouchableOpacity style={styles.iconBtn} onPress={() => setIsEditing(!isEditing)}>
+                                        <FontAwesome name="edit" size={20} color="#4299E1" />
                                     </TouchableOpacity>
-                                    <TouchableOpacity onPress={handleDeleteForecast} style={styles.iconBtn}>
-                                        <FontAwesome name="trash-o" size={18} color="#ef4444" />
+                                    <TouchableOpacity style={styles.iconBtn} onPress={handleDeleteTrade}>
+                                        <FontAwesome name="trash" size={20} color="#F56565" />
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -219,8 +189,8 @@ export default function TradeDetailsModal({
 
                         <View style={styles.statsRow}>
                             <View style={styles.stat}>
-                                <Text style={styles.statLabel}>Pair</Text>
-                                <Text style={styles.statValue}>{forecast.currency_pair}</Text>
+                                <Text style={styles.statLabel}>Symbol</Text>
+                                <Text style={styles.statValue}>{forecast.symbol}</Text>
                             </View>
                             <View style={styles.statDivider} />
                             <View style={styles.stat}>
@@ -250,12 +220,12 @@ export default function TradeDetailsModal({
                             <Image 
                                 source={{ uri: getTradingViewImageUrl(forecast.chart_image_url) || '' }} 
                                 style={styles.chartImage} 
-                                resizeMode="contain" 
+                                resizeMode="cover" 
                             />
                         )}
 
                         <View style={styles.analysisBox}>
-                            <Text style={styles.analysisTitle}>Analysis</Text>
+                            <Text style={styles.analysisTitle}>Trade Notes</Text>
                             {isEditing ? (
                                 <View style={styles.editBox}>
                                     <TextInput
@@ -263,13 +233,14 @@ export default function TradeDetailsModal({
                                         value={editContent}
                                         onChangeText={setEditContent}
                                         multiline
+                                        autoFocus
                                     />
-                                    <TouchableOpacity style={styles.saveBtn} onPress={handleUpdateForecast}>
+                                    <TouchableOpacity style={styles.saveBtn} onPress={handleUpdateTrade}>
                                         <Text style={styles.saveBtnText}>Save Changes</Text>
                                     </TouchableOpacity>
                                 </View>
                             ) : (
-                                <Text style={styles.analysisText}>{forecast.content}</Text>
+                                <Text style={styles.analysisText}>{forecast.notes || 'No notes for this trade.'}</Text>
                             )}
                         </View>
 
@@ -277,19 +248,15 @@ export default function TradeDetailsModal({
 
                         <View style={styles.commentsSection}>
                             <Text style={styles.sectionTitle}>Comments ({comments.length})</Text>
-                            {loadingComments ? (
-                                <ActivityIndicator color="#F5C400" style={{ marginVertical: 20 }} />
-                            ) : (
-                                comments.map((c) => (
-                                    <View key={c.id} style={styles.commentRow}>
-                                        <Avatar url={c.users.avatar_url} username={c.users.username} size={32} />
-                                        <View style={styles.commentContent}>
-                                            <Text style={styles.commentUser}>@{c.users.username}</Text>
-                                            <Text style={styles.commentText}>{c.content}</Text>
-                                        </View>
+                            {comments.map((comment) => (
+                                <View key={comment.id} style={styles.commentRow}>
+                                    <Avatar url={comment.users?.avatar_url} username={comment.users?.username ?? '?'} size={32} />
+                                    <View style={styles.commentContent}>
+                                        <Text style={styles.commentUser}>{comment.users?.username ?? 'User'}</Text>
+                                        <Text style={styles.commentText}>{comment.content}</Text>
                                     </View>
-                                ))
-                            )}
+                                </View>
+                            ))}
                         </View>
                     </ScrollView>
 
@@ -301,12 +268,12 @@ export default function TradeDetailsModal({
                             onChangeText={setNewComment}
                             multiline
                         />
-                        <TouchableOpacity
-                            style={[styles.sendBtn, !newComment.trim() && { opacity: 0.5 }]}
+                        <TouchableOpacity 
+                            style={[styles.sendBtn, !newComment.trim() && { opacity: 0.5 }]} 
                             onPress={handleAddComment}
-                            disabled={submittingComment || !newComment.trim()}
+                            disabled={!newComment.trim() || submittingComment}
                         >
-                            {submittingComment ? <ActivityIndicator size="small" color="#1a1a1a" /> : <FontAwesome name="send" size={18} color="#1a1a1a" />}
+                            <FontAwesome name="send" size={18} color="#1a1a1a" />
                         </TouchableOpacity>
                     </View>
                 </Animated.View>

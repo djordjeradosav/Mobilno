@@ -29,30 +29,29 @@ export function getTradingViewImageUrl(url: string | null): string | null {
   return url;
 }
 
-export type Forecast = {
+export type Trade = {
   id: string;
   user_id: string;
-  content: string;
+  symbol: string;
+  trade_type: 'Buy' | 'Sell';
+  entry_price: number | null;
+  exit_price: number | null;
+  money_value: number;
+  trade_date: string;
+  tradingview_link: string | null;
+  notes: string | null;
   chart_image_url: string | null;
-  currency_pair: string;
-  profit: number;
   likes_count: number;
-  comments_count: number;
   created_at: string;
-  // New fields
-  trade_date?: string;
-  trade_type?: 'Buy' | 'Sell';
-  entry_price?: number;
-  exit_price?: number;
-  money_value?: number;
-  tradingview_link?: string;
-  notes?: string;
   users?: {
     username: string;
     avatar_url: string | null;
     is_verified: boolean;
   };
 };
+
+// Keep Forecast as alias for backward compatibility during migration if needed
+export type Forecast = Trade;
 
 type Props = {
   forecast: Forecast;
@@ -110,7 +109,7 @@ export default function ForecastCard({
 }: Props) {
   const router = useRouter();
   const user = forecast.users;
-  const isProfitable = forecast.profit >= 0;
+  const isProfitable = forecast.money_value >= 0;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.95}>
@@ -145,7 +144,7 @@ export default function ForecastCard({
                 { color: isProfitable ? '#059669' : '#dc2626' },
               ]}
             >
-              {forecast.currency_pair}
+              {forecast.symbol}
             </Text>
           </View>
         </View>

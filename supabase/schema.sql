@@ -1,131 +1,79 @@
--- Ticksnap full schema (Clerk-compatible TEXT user IDs).
--- Paste this into Supabase Dashboard -> SQL Editor and click "Run".
--- Safe to re-run: it drops and recreates everything.
-
--- 1. Drop existing tables (cascade removes dependent FKs/policies)
-drop table if exists public.comments cascade;
-drop table if exists public.likes cascade;
-drop table if exists public.follows cascade;
-drop table if exists public.forecasts cascade;
-drop table if exists public.users cascade;
-
--- 2. Users (id is the Clerk user id, e.g. "user_2abc...")
+-- 1. Users Table (unchanged)
 create table public.users (
-    id text primary key,
-    username text unique not null,
-    email text unique not null,
+    id text primary key, -- Clerk/Supabase Auth ID
+    username text unique,
+    email text unique,
     avatar_url text,
-    member_since timestamptz not null default now(),
-    subscription_tier text not null default 'free',
     is_verified boolean not null default false
 );
 
--- 3. Forecasts (a.k.a. "posts")
-create table public.forecasts (
+-- 2. Trades Table (Renamed from forecasts and specialized)
+create table public.trades (
     id uuid primary key default gen_random_uuid(),
     user_id text not null references public.users(id) on delete cascade,
-    content text not null default '',
-    chart_image_url text,
-    currency_pair text not null,
-    profit numeric not null default 0,
-    likes_count integer not null default 0,
-    created_at timestamptz not null default now(),
-    -- New fields for Trading Journal
-    trade_date date not null default current_date,
+    symbol text not null,
     trade_type text check (trade_type in ('Buy', 'Sell')),
     entry_price numeric,
     exit_price numeric,
-    money_value numeric not null default 0,
+    money_value numeric not null default 0, -- Profit/Loss amount
+    trade_date date not null default current_date,
     tradingview_link text,
-    notes text
+    notes text,
+    chart_image_url text, -- For TradingView preview
+    likes_count integer not null default 0,
+    created_at timestamptz not null default now()
 );
-create index forecasts_user_idx on public.forecasts(user_id);
-create index forecasts_created_idx on public.forecasts(created_at desc);
 
--- 4. Likes (one per user per forecast)
+create index trades_user_idx on public.trades(user_id);
+create index trades_date_idx on public.trades(trade_date desc);
+
+-- 3. Likes (Updated for trades)
 create table public.likes (
+    id uuid primary key default gen_random_uuid(),
     user_id text not null references public.users(id) on delete cascade,
-    forecast_id uuid not null references public.forecasts(id) on delete cascade,
+    trade_id uuid not null references public.trades(id) on delete cascade,
     created_at timestamptz not null default now(),
-    primary key (user_id, forecast_id)
+    unique(user_id, trade_id)
 );
 
--- 5. Comments
+-- 4. Comments (Updated for trades)
 create table public.comments (
     id uuid primary key default gen_random_uuid(),
-    forecast_id uuid not null references public.forecasts(id) on delete cascade,
     user_id text not null references public.users(id) on delete cascade,
+    trade_id uuid not null references public.trades(id) on delete cascade,
     content text not null,
     created_at timestamptz not null default now()
 );
-create index comments_forecast_idx on public.comments(forecast_id, created_at desc);
 
--- 6. Follows
-create table public.follows (
-    follower_id text not null references public.users(id) on delete cascade,
-    followed_id text not null references public.users(id) on delete cascade,
-    created_at timestamptz not null default now(),
-    primary key (follower_id, followed_id)
-);
+-- 5. RLS Policies
+alter table public.users enable row level security;
+alter table public.trades enable row level security;
+alter table public.likes enable row level security;
+alter table public.comments enable row level security;
 
--- 7. Like counter RPCs used by the app
-create or replace function public.increment_likes(forecast_id uuid)
-returns void as $$
-    update public.forecasts set likes_count = likes_count + 1 where id = forecast_id;
-$$ language sql;
+-- Public read access
+create policy "Public read" on public.users for select using (true);
+create policy "Public read" on public.trades for select using (true);
+create policy "Public read" on public.likes for select using (true);
+create policy "Public read" on public.comments for select using (true);
 
-create or replace function public.decrement_likes(forecast_id uuid)
-returns void as $$
-    update public.forecasts set likes_count = greatest(likes_count - 1, 0) where id = forecast_id;
-$$ language sql;
+-- Authenticated write access
+create policy "User can update own profile" on public.users for update using (auth.uid()::text = id);
+create policy "User can manage own trades" on public.trades for all using (auth.uid()::text = user_id);
+create policy "User can manage own likes" on public.likes for all using (auth.uid()::text = user_id);
+create policy "User can manage own comments" on public.comments for all using (auth.uid()::text = user_id);
 
--- 8. RLS: keep it simple for now -- the publishable key has anon role.
--- We disable RLS so the client can read/write directly. Tighten later by
--- enabling RLS and writing per-table policies based on auth.jwt().
-alter table public.users      disable row level security;
-alter table public.forecasts  disable row level security;
-alter table public.likes      disable row level security;
-alter table public.comments   disable row level security;
-alter table public.follows    disable row level security;
-
--- 9. Realtime (so the live feed updates)
-alter publication supabase_realtime add table public.forecasts;
-alter publication supabase_realtime add table public.comments;
-alter publication supabase_realtime add table public.likes;
-
--- 10. Storage bucket for chart images (publicly readable, anonymous uploads)
-insert into storage.buckets (id, name, public)
-values ('forecasts', 'forecasts', true)
-on conflict (id) do update set public = true;
-
--- Drop existing policies (idempotent re-run)
-drop policy if exists "forecasts_public_read" on storage.objects;
-drop policy if exists "forecasts_anon_insert" on storage.objects;
-drop policy if exists "forecasts_anon_delete" on storage.objects;
-
-create policy "forecasts_public_read" on storage.objects
-    for select using (bucket_id = 'forecasts');
-
-create policy "forecasts_anon_insert" on storage.objects
-    for insert with check (bucket_id = 'forecasts');
-
-create policy "forecasts_anon_delete" on storage.objects
-    for delete using (bucket_id = 'forecasts');
-
--- 11. RPC for creating forecasts with a bypass/helper if needed
--- This function matches the call in forecast.tsx
-create or replace function public.create_forecast_v3(
-    p_content text,
-    p_currency_pair text,
-    p_profit numeric,
-    p_chart_image_url text default null,
-    p_trade_date date default current_date,
-    p_trade_type text default 'Buy',
-    p_entry_price numeric default null,
-    p_exit_price numeric default null,
-    p_money_value numeric default 0,
-    p_tradingview_link text default null,
-    p_notes text default null
+-- 6. RPC for creating trades (JIT user creation)
+create or replace function public.add_new_trade(
+    p_symbol text,
+    p_trade_type text,
+    p_entry_price numeric,
+    p_exit_price numeric,
+    p_money_value numeric,
+    p_trade_date date,
+    p_tradingview_link text,
+    p_notes text,
+    p_chart_image_url text default null
 )
 returns uuid as $$
 declare
@@ -136,6 +84,7 @@ begin
     v_user_id := auth.uid()::text;
     if v_user_id is null then raise exception 'User not authenticated'; end if;
 
+    -- Ensure user exists
     if not exists (select 1 from public.users where id = v_user_id) then
         select email into v_user_email from auth.users where id::text = v_user_id;
         insert into public.users (id, username, email)
@@ -143,13 +92,13 @@ begin
         on conflict (id) do nothing;
     end if;
 
-    insert into public.forecasts (
-        user_id, content, currency_pair, profit, chart_image_url,
-        trade_date, trade_type, entry_price, exit_price, money_value, tradingview_link, notes
+    insert into public.trades (
+        user_id, symbol, trade_type, entry_price, exit_price, money_value, 
+        trade_date, tradingview_link, notes, chart_image_url
     )
     values (
-        v_user_id, p_content, p_currency_pair, p_profit, p_chart_image_url,
-        p_trade_date, p_trade_type, p_entry_price, p_exit_price, p_money_value, p_tradingview_link, p_notes
+        v_user_id, p_symbol, p_trade_type, p_entry_price, p_exit_price, p_money_value, 
+        p_trade_date, p_tradingview_link, p_notes, p_chart_image_url
     )
     returning id into new_id;
     

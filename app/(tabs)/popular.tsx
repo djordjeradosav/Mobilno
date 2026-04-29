@@ -15,31 +15,31 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Svg, Path, Rect, Line, Polyline } from 'react-native-svg';
-import { Forecast } from '@/components/ForecastCard';
+import { Trade } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function Popular() {
     const { user } = useAuth();
-    const [trades, setTrades] = useState<Forecast[]>([]);
+    const [trades, setTrades] = useState<Trade[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [selectedTrade, setSelectedTrade] = useState<Forecast | null>(null);
+    const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
 
     const fetchTrades = useCallback(async () => {
         if (!user?.id) return;
         const { data, error } = await supabase
-            .from('forecasts')
-            .select('*, users!forecasts_user_id_fkey(username, avatar_url, is_verified)')
+            .from('trades')
+            .select('*, users!trades_user_id_fkey(username, avatar_url, is_verified)')
             .eq('user_id', user.id)
             .order('trade_date', { ascending: false });
 
         if (error) console.error('[fetchTrades]', error.message);
-        if (data) setTrades(data as Forecast[]);
+        if (data) setTrades(data as Trade[]);
         setLoading(false);
     }, [user?.id]);
 
@@ -239,7 +239,7 @@ export default function Popular() {
                                 onPress={() => { setSelectedTrade(trade); setModalVisible(true); }}
                             >
                                 <View style={styles.historyMain}>
-                                    <Text style={styles.historySymbol}>{trade.currency_pair}</Text>
+                                    <Text style={styles.historySymbol}>{trade.symbol}</Text>
                                     <Text style={styles.historyType}>{trade.trade_type} @ {trade.entry_price || '—'}</Text>
                                 </View>
                                 <View style={styles.historyRight}>
@@ -262,7 +262,7 @@ export default function Popular() {
                             onPress={() => { setSelectedTrade(trade); setModalVisible(true); }}
                         >
                             <View style={styles.historyMain}>
-                                <Text style={styles.historySymbol}>{trade.currency_pair}</Text>
+                                <Text style={styles.historySymbol}>{trade.symbol}</Text>
                                 <Text style={styles.historyDate}>{trade.trade_date || trade.created_at.split('T')[0]}</Text>
                             </View>
                             <View style={styles.historyRight}>

@@ -108,7 +108,12 @@ export default function Popular() {
         
         for (let d = 1; d <= days; d++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            const dayTrades = trades.filter(t => t.trade_date === dateStr);
+            // Filter trades by date, ensuring we handle potential time components in trade_date
+            const dayTrades = trades.filter(t => {
+                if (!t.trade_date) return false;
+                const tDate = t.trade_date.split('T')[0];
+                return tDate === dateStr;
+            });
             const totalPL = dayTrades.reduce((sum, t) => sum + (t.money_value || 0), 0);
             
             grid.push({
@@ -135,8 +140,15 @@ export default function Popular() {
         return finalGrid;
     }, [currentMonth, trades]);
 
-    const monthlyPL = useMemo(() => trades.reduce((sum, t) => sum + (t.money_value || 0), 0), [trades]);
-    const totalTrades = trades.length;
+    const monthlyTrades = useMemo(() => {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+        return trades.filter(t => t.trade_date && t.trade_date.startsWith(monthStr));
+    }, [trades, currentMonth]);
+
+    const monthlyPL = useMemo(() => monthlyTrades.reduce((sum, t) => sum + (t.money_value || 0), 0), [monthlyTrades]);
+    const totalTrades = monthlyTrades.length;
 
     const chartData = useMemo(() => {
         let cumulative = 0;
@@ -148,7 +160,7 @@ export default function Popular() {
     }, [trades]);
 
     const filteredTrades = useMemo(() => {
-        return trades.filter(t => t.trade_date === selectedDate);
+        return trades.filter(t => t.trade_date && t.trade_date.split('T')[0] === selectedDate);
     }, [trades, selectedDate]);
 
     if (loading) {

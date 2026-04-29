@@ -177,7 +177,7 @@ export default function Popular() {
             const tDate = typeof t.trade_date === 'string' ? t.trade_date.split('T')[0] : t.trade_date;
             return tDate === selectedDate;
         });
-    }, [trades, selectedDate]);}
+    }, [trades, selectedDate]);
 
     if (loading) {
         return (

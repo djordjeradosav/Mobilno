@@ -18,7 +18,7 @@ import {
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { Trade, getTradingViewImageUrl } from './ForecastCard';
-import Avatar from '@/components/Avatar';
+import Avatar from './Avatar';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const SHEET_H = SCREEN_H * 0.85;

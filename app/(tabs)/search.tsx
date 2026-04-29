@@ -3,7 +3,7 @@ import { useAuth } from '@/lib/auth';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import Avatar from '@/components/Avatar';
+import Avatar from '../../components/Avatar';
 import {
     ActivityIndicator,
     Image,

@@ -32,15 +32,26 @@ export default function Popular() {
 
     const fetchTrades = useCallback(async () => {
         if (!user?.id) return;
-        const { data, error } = await supabase
-            .from('trades')
-            .select('*, users!trades_user_id_fkey(username, avatar_url, is_verified)')
-            .eq('user_id', user.id)
-            .order('trade_date', { ascending: false });
+        try {
+            const { data, error } = await supabase
+                .from('trades')
+                .select('*, users!trades_user_id_fkey(username, avatar_url, is_verified)')
+                .eq('user_id', user.id)
+                .order('trade_date', { ascending: false });
 
-        if (error) console.error('[fetchTrades]', error.message);
-        if (data) setTrades(data as Trade[]);
-        setLoading(false);
+            if (error) {
+                console.error('[fetchTrades] Supabase Error:', error.message);
+                // If the error is about a missing column, it means the SQL migration hasn't been run yet
+                if (error.message.includes('column "trade_date" does not exist')) {
+                    console.warn('The "trade_date" column is missing. Please run the repair_trades.sql script in Supabase.');
+                }
+            }
+            if (data) setTrades(data as Trade[]);
+        } catch (err) {
+            console.error('[fetchTrades] Unexpected Error:', err);
+        } finally {
+            setLoading(false);
+        }
     }, [user?.id]);
 
     useFocusEffect(

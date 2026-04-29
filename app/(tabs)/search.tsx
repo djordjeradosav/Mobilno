@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    FlatList,
     Image,
     StyleSheet,
     Text,
@@ -17,6 +16,7 @@ import {
     ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getForexNews, NewsItem as AVNewsItem } from '@/lib/news';
 
 type UserProfile = {
     id: string;
@@ -24,15 +24,6 @@ type UserProfile = {
     avatar_url: string | null;
     is_verified: boolean;
     subscription_tier: string;
-};
-
-type NewsItem = {
-    id: string;
-    title: string;
-    summary: string;
-    url: string;
-    date: string;
-    source: string;
 };
 
 function Avatar({ url, username, size = 44 }: { url?: string | null; username: string; size?: number }) {
@@ -53,7 +44,7 @@ export default function Search() {
     const { user } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [results, setResults] = useState<UserProfile[]>([]);
-    const [news, setNews] = useState<NewsItem[]>([]);
+    const [news, setNews] = useState<AVNewsItem[]>([]);
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [loadingNews, setLoadingNews] = useState(true);
@@ -74,100 +65,10 @@ export default function Search() {
     const fetchNews = useCallback(async () => {
         setLoadingNews(true);
         try {
-            const apiKey = process.env.EXPO_PUBLIC_NEWS_API_KEY;
-
-            if (!apiKey) {
-                console.warn('[fetchNews] No NewsAPI key found. Using mock data.');
-                // Fallback to mock data if no API key
-                const mockNews: NewsItem[] = [
-                    {
-                        id: '1',
-                        title: 'Fed Signals Potential Rate Cuts Later This Year',
-                        summary: 'Federal Reserve officials indicated that while inflation remains a concern, the path to lower rates is becoming clearer...',
-                        url: 'https://www.reuters.com/markets/us/',
-                        date: '2 hours ago',
-                        source: 'Reuters'
-                    },
-                    {
-                        id: '2',
-                        title: 'Bitcoin Hits New All-Time High Amid ETF Inflows',
-                        summary: 'The worlds largest cryptocurrency surged past previous records as institutional demand continues to grow through spot ETFs...',
-                        url: 'https://www.coindesk.com/',
-                        date: '4 hours ago',
-                        source: 'CoinDesk'
-                    },
-                    {
-                        id: '3',
-                        title: 'Tech Stocks Rally on Strong Earnings Reports',
-                        summary: 'Major technology companies reported better-than-expected quarterly results, driving the Nasdaq to significant gains...',
-                        url: 'https://www.bloomberg.com/markets',
-                        date: '6 hours ago',
-                        source: 'Bloomberg'
-                    }
-                ];
-                setNews(mockNews);
-                setLoadingNews(false);
-                return;
-            }
-
-            // Fetch from NewsAPI.org
-            const response = await fetch(
-                `https://newsapi.org/v2/everything?q=finance+OR+forex+OR+crypto+OR+stocks&sortBy=publishedAt&language=en&pageSize=10&apiKey=${apiKey}`
-            );
-
-            if (!response.ok) {
-                throw new Error(`NewsAPI error: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (data.articles && Array.isArray(data.articles)) {
-                const formattedNews: NewsItem[] = data.articles.map((article: any, index: number) => {
-                    const publishedDate = new Date(article.publishedAt);
-                    const now = new Date();
-                    const diffMs = now.getTime() - publishedDate.getTime();
-                    const diffMins = Math.floor(diffMs / 60000);
-                    const diffHours = Math.floor(diffMs / 3600000);
-                    const diffDays = Math.floor(diffMs / 86400000);
-
-                    let timeAgo = 'just now';
-                    if (diffMins > 0 && diffMins < 60) timeAgo = `${diffMins}m ago`;
-                    else if (diffHours > 0 && diffHours < 24) timeAgo = `${diffHours}h ago`;
-                    else if (diffDays > 0) timeAgo = `${diffDays}d ago`;
-
-                    return {
-                        id: `${index}-${article.url}`,
-                        title: article.title || 'Untitled',
-                        summary: article.description || article.content || 'No summary available',
-                        url: article.url,
-                        date: timeAgo,
-                        source: article.source?.name || 'Unknown Source'
-                    };
-                });
-                setNews(formattedNews);
-            }
+            const latestNews = await getForexNews();
+            setNews(latestNews);
         } catch (error) {
             console.error('[fetchNews]', error);
-            // Fallback to mock data on error
-            const mockNews: NewsItem[] = [
-                {
-                    id: '1',
-                    title: 'Fed Signals Potential Rate Cuts Later This Year',
-                    summary: 'Federal Reserve officials indicated that while inflation remains a concern, the path to lower rates is becoming clearer...',
-                    url: 'https://www.reuters.com/markets/us/',
-                    date: '2 hours ago',
-                    source: 'Reuters'
-                },
-                {
-                    id: '2',
-                    title: 'Bitcoin Hits New All-Time High Amid ETF Inflows',
-                    summary: 'The worlds largest cryptocurrency surged past previous records as institutional demand continues to grow through spot ETFs...',
-                    url: 'https://www.coindesk.com/',
-                    date: '4 hours ago',
-                    source: 'CoinDesk'
-                }
-            ];
-            setNews(mockNews);
         } finally {
             setLoadingNews(false);
         }
@@ -237,6 +138,14 @@ export default function Search() {
         Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open the article'));
     };
 
+    const getTimeAgo = (timestamp: number) => {
+        const diff = Math.floor(Date.now() / 1000 - timestamp);
+        if (diff < 60) return 'just now';
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        return `${Math.floor(diff / 86400)}d ago`;
+    };
+
     return (
         <SafeAreaView style={styles.root} edges={['top']}>
             <View style={styles.header}>
@@ -276,13 +185,13 @@ export default function Search() {
                                 <TouchableOpacity
                                     style={[
                                         styles.followBtn,
-                                        followingIds.has(item.id) && styles.followBtnActive
+                                        followingIds.has(item.id) && styles.followingBtn
                                     ]}
-                                    onPress={(e) => { e.stopPropagation(); toggleFollow(item.id); }}
+                                    onPress={() => toggleFollow(item.id)}
                                 >
                                     <Text style={[
                                         styles.followBtnText,
-                                        followingIds.has(item.id) && styles.followBtnTextActive
+                                        followingIds.has(item.id) && styles.followingBtnText
                                     ]}>
                                         {followingIds.has(item.id) ? 'Following' : 'Follow'}
                                     </Text>
@@ -293,30 +202,40 @@ export default function Search() {
                 )}
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>📰 Market News</Text>
-                    {loadingNews ? (
-                        <ActivityIndicator color="#F5C400" style={{ marginTop: 20 }} />
-                    ) : (
-                        news.map(item => (
-                            <TouchableOpacity
-                                key={item.id}
-                                style={styles.newsCard}
-                                onPress={() => openArticle(item.url)}
-                                activeOpacity={0.9}
-                            >
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Latest Market News</Text>
+                        {loadingNews && <ActivityIndicator size="small" color="#F5C400" />}
+                    </View>
+                    
+                    {news.map((item) => (
+                        <TouchableOpacity
+                            key={item.id}
+                            style={styles.newsCard}
+                            onPress={() => openArticle(item.url)}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.newsContent}>
                                 <View style={styles.newsHeader}>
                                     <Text style={styles.newsSource}>{item.source}</Text>
-                                    <Text style={styles.newsDate}>{item.date}</Text>
+                                    <Text style={styles.newsDate}>{getTimeAgo(item.datetime)}</Text>
                                 </View>
-                                <Text style={styles.newsTitle}>{item.title}</Text>
+                                <Text style={styles.newsTitle} numberOfLines={2}>{item.headline}</Text>
                                 <Text style={styles.newsSummary} numberOfLines={2}>{item.summary}</Text>
-                                <View style={styles.readMore}>
-                                    <Text style={styles.readMoreText}>Read full article</Text>
-                                    <FontAwesome name="arrow-right" size={12} color="#F5C400" />
-                                </View>
-                            </TouchableOpacity>
-                        ))
-                    )}
+                                {item.tickers.length > 0 && (
+                                    <View style={styles.tickerRow}>
+                                        {item.tickers.map(t => (
+                                            <View key={t} style={styles.tickerBadge}>
+                                                <Text style={styles.tickerText}>{t}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                            {item.image && (
+                                <Image source={{ uri: item.image }} style={styles.newsImage} />
+                            )}
+                        </TouchableOpacity>
+                    ))}
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -325,71 +244,31 @@ export default function Search() {
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#F5F5F3' },
-    header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+    header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
     headerTitle: { fontSize: 28, fontWeight: '900', color: '#1a1a1a', letterSpacing: -0.5 },
-    searchBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        marginHorizontal: 20,
-        marginTop: 12,
-        marginBottom: 16,
-        backgroundColor: '#fff',
-        borderRadius: 14,
-        paddingHorizontal: 16,
-        height: 52,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
-        elevation: 2,
-    },
-    searchInput: { flex: 1, fontSize: 16, color: '#1a1a1a', fontWeight: '500' },
-    section: { paddingHorizontal: 20, marginBottom: 24 },
-    sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1a1a1a', marginBottom: 12 },
-    userRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        padding: 12,
-        marginBottom: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        elevation: 1,
-    },
-    userInfo: { flex: 1, gap: 2 },
+    searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 20, paddingHorizontal: 16, height: 50, borderRadius: 14, gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+    searchInput: { flex: 1, fontSize: 16, fontWeight: '600', color: '#1a1a1a' },
+    section: { marginTop: 24, paddingHorizontal: 20 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+    sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
+    userRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 12, borderRadius: 16, marginBottom: 10, gap: 12 },
+    userInfo: { flex: 1 },
     userNameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     username: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
-    tier: { fontSize: 12, color: '#aaa', fontWeight: '500', textTransform: 'capitalize' },
-    followBtn: {
-        backgroundColor: '#F5C400',
-        borderRadius: 10,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-    },
-    followBtnActive: { backgroundColor: '#f0f0ee' },
+    tier: { fontSize: 12, color: '#999', fontWeight: '600', textTransform: 'capitalize' },
+    followBtn: { backgroundColor: '#F5C400', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
+    followingBtn: { backgroundColor: '#eee' },
     followBtnText: { fontSize: 13, fontWeight: '700', color: '#1a1a1a' },
-    followBtnTextActive: { color: '#888' },
-    newsCard: {
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        elevation: 1,
-    },
-    newsHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    newsSource: { fontSize: 12, fontWeight: '800', color: '#F5C400', textTransform: 'uppercase' },
-    newsDate: { fontSize: 12, color: '#aaa', fontWeight: '500' },
-    newsTitle: { fontSize: 16, fontWeight: '800', color: '#1a1a1a', marginBottom: 6, lineHeight: 22 },
-    newsSummary: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 12 },
-    readMore: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    readMoreText: { fontSize: 13, fontWeight: '700', color: '#F5C400' },
+    followingBtnText: { color: '#888' },
+    newsCard: { flexDirection: 'row', backgroundColor: '#fff', padding: 16, borderRadius: 20, marginBottom: 12, gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 2 },
+    newsContent: { flex: 1, gap: 4 },
+    newsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    newsSource: { fontSize: 11, fontWeight: '800', color: '#F5C400', textTransform: 'uppercase' },
+    newsDate: { fontSize: 11, color: '#bbb', fontWeight: '600' },
+    newsTitle: { fontSize: 15, fontWeight: '800', color: '#1a1a1a', lineHeight: 20 },
+    newsSummary: { fontSize: 13, color: '#666', lineHeight: 18, marginTop: 2 },
+    newsImage: { width: 80, height: 80, borderRadius: 12, backgroundColor: '#f5f5f5' },
+    tickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+    tickerBadge: { backgroundColor: '#f0f0f0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    tickerText: { fontSize: 10, fontWeight: '700', color: '#666' },
 });

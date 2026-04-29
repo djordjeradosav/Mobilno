@@ -12,6 +12,23 @@ import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
+/**
+ * Converts a TradingView chart URL to a direct image URL.
+ * Example: https://www.tradingview.com/x/ABCDEFG/ -> https://www.tradingview.com/x/ABCDEFG.png
+ */
+export function getTradingViewImageUrl(url: string | null): string | null {
+  if (!url) return null;
+  if (url.includes('tradingview.com/x/')) {
+    // If it's a sharing link like /x/ID/, append .png if not present
+    const cleanUrl = url.split('?')[0].replace(/\/$/, '');
+    if (!cleanUrl.endsWith('.png')) {
+      return `${cleanUrl}.png`;
+    }
+    return cleanUrl;
+  }
+  return url;
+}
+
 export type Forecast = {
   id: string;
   user_id: string;
@@ -127,7 +144,7 @@ export default function ForecastCard({
 
       {forecast.chart_image_url && (
         <Image
-          source={{ uri: forecast.chart_image_url }}
+          source={{ uri: getTradingViewImageUrl(forecast.chart_image_url) || '' }}
           style={styles.chartImage}
           resizeMode="cover"
         />

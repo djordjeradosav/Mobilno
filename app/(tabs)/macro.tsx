@@ -90,15 +90,15 @@ export default function Macro() {
             >
                 <View style={styles.table}>
                     <View style={styles.tableHeader}>
-                        <Text style={[styles.th, { flex: 2 }]}>Indicator</Text>
+                        <Text style={[styles.th, { flex: 2, textAlign: 'left' }]}>Indicator</Text>
                         <Text style={styles.th}>Previous</Text>
                         <Text style={styles.th}>Current</Text>
-                        <Text style={styles.th}>Trend</Text>
+                        <Text style={[styles.th, { textAlign: 'center' }]}>Trend</Text>
                     </View>
 
                     {series.map((s) => (
                         <View key={s.id} style={styles.tr}>
-                            <View style={[styles.td, { flex: 2 }]}>
+                            <View style={[styles.td, { flex: 2, textAlign: 'left', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }]}>
                                 <Text style={styles.indicatorEmoji}>{s.emoji}</Text>
                                 <View>
                                     <Text style={styles.indicatorTitle}>{s.title}</Text>
@@ -111,7 +111,7 @@ export default function Macro() {
                             <Text style={[styles.td, styles.currentValue]}>
                                 {s.latest ? formatFredValue(s.latest.value, s.unit) : '—'}
                             </Text>
-                            <View style={styles.td}>
+                            <View style={[styles.td, { justifyContent: 'center' }]}>
                                 <SimpleChart observations={s.observations.slice(0, 12)} />
                             </View>
                         </View>
@@ -137,9 +137,9 @@ const styles = StyleSheet.create({
     scroll: { flex: 1 },
     table: { backgroundColor: '#fff', marginTop: 16, marginHorizontal: 16, marginBottom: 24, borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
     tableHeader: { flexDirection: 'row', backgroundColor: '#f9f9f9', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-    th: { flex: 1, fontSize: 12, fontWeight: '800', color: '#999', textTransform: 'uppercase', textAlign: 'center', letterSpacing: 0.5 },
+    th: { flex: 1, fontSize: 11, fontWeight: '800', color: '#999', textTransform: 'uppercase', textAlign: 'right', letterSpacing: 0.5 },
     tr: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f8f8f8', alignItems: 'center' },
-    td: { flex: 1, fontSize: 13, fontWeight: '700', color: '#555', textAlign: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+    td: { flex: 1, fontSize: 13, fontWeight: '700', color: '#555', textAlign: 'right' },
     indicatorEmoji: { fontSize: 18, marginRight: 8 },
     indicatorTitle: { fontSize: 13, fontWeight: '800', color: '#1a1a1a' },
     indicatorId: { fontSize: 10, color: '#bbb', fontWeight: '600' },

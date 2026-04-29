@@ -17,7 +17,7 @@ import {
     KeyboardAvoidingView,
     Platform,
 } from 'react-native';
-import { Forecast } from './ForecastCard';
+import { Forecast, getTradingViewImageUrl } from './ForecastCard';
 import { supabase } from '@/lib/supabase';
 
 const { height: SCREEN_H } = Dimensions.get('window');
@@ -232,7 +232,11 @@ export default function TradeDetailsModal({
                         </View>
 
                         {forecast.chart_image_url && (
-                            <Image source={{ uri: forecast.chart_image_url }} style={styles.chartImage} resizeMode="contain" />
+                            <Image 
+                                source={{ uri: getTradingViewImageUrl(forecast.chart_image_url) || '' }} 
+                                style={styles.chartImage} 
+                                resizeMode="contain" 
+                            />
                         )}
 
                         <View style={styles.analysisBox}>

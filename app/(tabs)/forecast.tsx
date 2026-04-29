@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { getTradingViewImageUrl } from '@/components/ForecastCard';
 
 const CURRENCY_PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD', 'BTC/USD', 'ETH/USD', 'GOLD'];
 
@@ -127,7 +128,7 @@ export default function CreateForecast() {
                             <View style={styles.previewContainer}>
                                 <Text style={styles.previewLabel}>Preview:</Text>
                                 <Image
-                                    source={{ uri: chartUrl }}
+                                    source={{ uri: getTradingViewImageUrl(chartUrl) || '' }}
                                     style={styles.previewImage}
                                     resizeMode="cover"
                                 />

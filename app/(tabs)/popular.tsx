@@ -98,7 +98,7 @@ export default function Popular() {
     const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
     const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
 
-    const calendarData = useMemo(() => {
+    const calendarGrid = useMemo(() => {
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth();
         const days = daysInMonth(year, month);
@@ -107,7 +107,7 @@ export default function Popular() {
         const grid = [];
         // Empty cells for first week
         for (let i = 0; i < firstDay; i++) {
-            grid.push({ day: null });
+            grid.push({ day: null, isWeekTotal: false });
         }
         
         // Actual days
@@ -120,29 +120,30 @@ export default function Popular() {
                 day: d,
                 date: dateStr,
                 trades: dayTrades.length,
-                pl: totalPL
+                pl: totalPL,
+                isWeekTotal: false
             });
+
+            // If it's Saturday (end of week) or last day of month, we could insert a week total here,
+            // but for a 8-column grid layout, it's easier to insert after every 7 items.
+        }
+
+        // Fill remaining cells to complete the last week
+        while (grid.length % 7 !== 0) {
+            grid.push({ day: null, isWeekTotal: false });
+        }
+
+        // Now we have a grid of N rows and 7 columns. We need to add an 8th column for Weekly P/L.
+        const finalGrid = [];
+        for (let i = 0; i < grid.length; i += 7) {
+            const week = grid.slice(i, i + 7);
+            const weekTotal = week.reduce((sum, item) => sum + (item.pl || 0), 0);
+            finalGrid.push(...week);
+            finalGrid.push({ day: null, pl: weekTotal, isWeekTotal: true });
         }
         
-        return grid;
+        return finalGrid;
     }, [currentMonth, trades]);
-
-    // Weekly P/L
-    const weeklyPL = useMemo(() => {
-        const weeks = [];
-        let currentWeekPL = 0;
-        
-        calendarData.forEach((day, index) => {
-            if (day.day) {
-                currentWeekPL += day.pl || 0;
-            }
-            if ((index + 1) % 7 === 0 || index === calendarData.length - 1) {
-                weeks.push(currentWeekPL);
-                currentWeekPL = 0;
-            }
-        });
-        return weeks;
-    }, [calendarData]);
 
     // Monthly Totals
     const monthlyPL = useMemo(() => trades.reduce((sum, t) => sum + (t.money_value || 0), 0), [trades]);
@@ -201,35 +202,45 @@ export default function Popular() {
                     </View>
                     
                     <View style={styles.grid}>
-                        {calendarData.map((item, i) => (
-                            <TouchableOpacity 
-                                key={i} 
-                                style={[
-                                    styles.dayCell,
-                                    item.date === selectedDate && styles.selectedCell,
-                                    item.day && item.pl > 0 && styles.profitCell,
-                                    item.day && item.pl < 0 && styles.lossCell,
-                                ]}
-                                disabled={!item.day}
-                                onPress={() => setSelectedDate(item.date!)}
-                            >
-                                {item.day && (
-                                    <>
-                                        <Text style={styles.dayNum}>{item.day}</Text>
-                                        {item.trades > 0 && (
-                                            <>
-                                                <Text style={[styles.cellPL, { color: (item.pl || 0) >= 0 ? '#059669' : '#dc2626' }]}>
-                                                    ${Math.abs(item.pl || 0).toFixed(0)}
-                                                </Text>
-                                                <Text style={styles.cellTrades}>{item.trades} trade{item.trades > 1 ? 's' : ''}</Text>
-                                            </>
-                                        )}
-                                    </>
-                                )}
-                            </TouchableOpacity>
-                        ))}
-                        
-                        {/* Weekly P/L column is handled by the grid layout */}
+                        {calendarGrid.map((item, i) => {
+                            if (item.isWeekTotal) {
+                                return (
+                                    <View key={`week-${i}`} style={[styles.dayCell, styles.weekTotalCell]}>
+                                        <Text style={styles.weekLabelText}>Week</Text>
+                                        <Text style={[styles.cellPL, { color: (item.pl || 0) >= 0 ? '#059669' : '#dc2626' }]}>
+                                            ${Math.abs(item.pl || 0).toFixed(0)}
+                                        </Text>
+                                    </View>
+                                );
+                            }
+                            return (
+                                <TouchableOpacity 
+                                    key={i} 
+                                    style={[
+                                        styles.dayCell,
+                                        item.date === selectedDate && styles.selectedCell,
+                                        item.day && (item.pl || 0) > 0 && styles.profitCell,
+                                        item.day && (item.pl || 0) < 0 && styles.lossCell,
+                                    ]}
+                                    disabled={!item.day}
+                                    onPress={() => setSelectedDate(item.date!)}
+                                >
+                                    {item.day && (
+                                        <>
+                                            <Text style={styles.dayNum}>{item.day}</Text>
+                                            {item.trades > 0 && (
+                                                <>
+                                                    <Text style={[styles.cellPL, { color: (item.pl || 0) >= 0 ? '#059669' : '#dc2626' }]}>
+                                                        ${Math.abs(item.pl || 0).toFixed(0)}
+                                                    </Text>
+                                                    <Text style={styles.cellTrades}>{item.trades} trade{item.trades > 1 ? 's' : ''}</Text>
+                                                </>
+                                            )}
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            );
+                        })}
                     </View>
                 </View>
 
@@ -341,6 +352,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center'
     },
+    weekTotalCell: { backgroundColor: '#f9fafb' },
+    weekLabelText: { fontSize: 10, fontWeight: '700', color: '#999', position: 'absolute', top: 4, left: 4 },
     selectedCell: { borderColor: '#3b82f6', borderWidth: 2, borderRadius: 8 },
     profitCell: { backgroundColor: '#ecfdf5' },
     lossCell: { backgroundColor: '#fef2f2' },

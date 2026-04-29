@@ -116,15 +116,31 @@ returns uuid as $$
 declare
     new_id uuid;
     v_user_id text;
+    v_user_email text;
 begin
-    -- Try to get the user ID from auth.uid() (works for Supabase Auth)
-    -- If it's null, we might be in a different auth context, but the app expects this to work.
+    -- 1. Get the authenticated user ID
     v_user_id := auth.uid()::text;
     
     if v_user_id is null then
         raise exception 'User not authenticated';
     end if;
 
+    -- 2. Ensure the user exists in the public.users table
+    -- This prevents foreign key violations if the user profile hasn't been created yet
+    if not exists (select 1 from public.users where id = v_user_id) then
+        -- Get email from auth.users if available
+        select email into v_user_email from auth.users where id::text = v_user_id;
+        
+        insert into public.users (id, username, email)
+        values (
+            v_user_id, 
+            coalesce(split_part(v_user_email, '@', 1), 'user_' || substr(v_user_id, 1, 8)),
+            coalesce(v_user_email, v_user_id || '@placeholder.com')
+        )
+        on conflict (id) do nothing;
+    end if;
+
+    -- 3. Insert the forecast
     insert into public.forecasts (
         user_id,
         content,

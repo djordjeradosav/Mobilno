@@ -30,6 +30,14 @@ export default function Popular() {
     const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
 
+    interface CalendarItem {
+        day: number | null;
+        date?: string;
+        trades?: number;
+        pl?: number;
+        isWeekTotal: boolean;
+    }
+
     const fetchTrades = useCallback(async () => {
         if (!user?.id) return;
         try {
@@ -87,13 +95,13 @@ export default function Popular() {
     const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
     const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
 
-    const calendarGrid = useMemo(() => {
+    const calendarGrid = useMemo<CalendarItem[]>(() => {
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth();
         const days = daysInMonth(year, month);
         const firstDay = firstDayOfMonth(year, month);
         
-        const grid = [];
+        const grid: CalendarItem[] = [];
         for (let i = 0; i < firstDay; i++) {
             grid.push({ day: null, isWeekTotal: false });
         }
@@ -116,7 +124,7 @@ export default function Popular() {
             grid.push({ day: null, isWeekTotal: false });
         }
 
-        const finalGrid = [];
+        const finalGrid: CalendarItem[] = [];
         for (let i = 0; i < grid.length; i += 7) {
             const week = grid.slice(i, i + 7);
             const weekTotal = week.reduce((sum, item) => sum + (item.pl || 0), 0);
@@ -191,12 +199,12 @@ export default function Popular() {
                     </View>
                     
                     <View style={styles.grid}>
-                        {calendarGrid.map((item, i) => {
+                        {calendarGrid.map((item: CalendarItem, i) => {
                             // Ensure pl is always a number for calculations
-                            const safePL = item?.pl || 0;
-                            const safeTrades = item?.trades || 0;
+                            const safePL = item.pl || 0;
+                            const safeTrades = item.trades || 0;
 
-                            if (item?.isWeekTotal) {
+                            if (item.isWeekTotal) {
                                 return (
                                     <View key={`week-${i}`} style={[styles.dayCell, styles.weekTotalCell]}>
                                         <Text style={[styles.cellPL, { color: safePL >= 0 ? '#059669' : '#dc2626' }]}>
@@ -206,9 +214,9 @@ export default function Popular() {
                                 );
                             }
                             
-                            const isSelected = item?.date && item.date === selectedDate;
-                            const isProfit = item?.day !== null && safePL > 0;
-                            const isLoss = item?.day !== null && safePL < 0;
+                            const isSelected = !!(item.date && item.date === selectedDate);
+                            const isProfit = item.day !== null && safePL > 0;
+                            const isLoss = item.day !== null && safePL < 0;
 
                             return (
                                 <TouchableOpacity 
@@ -219,10 +227,10 @@ export default function Popular() {
                                         isProfit && styles.profitCell,
                                         isLoss && styles.lossCell,
                                     ]}
-                                    disabled={!item?.day}
-                                    onPress={() => item?.date && setSelectedDate(item.date)}
+                                    disabled={!item.day}
+                                    onPress={() => item.date && setSelectedDate(item.date)}
                                 >
-                                    {item?.day && (
+                                    {item.day && (
                                         <>
                                             <Text style={styles.dayNum}>{item.day}</Text>
                                             {safeTrades > 0 && (

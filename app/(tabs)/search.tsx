@@ -3,6 +3,7 @@ import { useAuth } from '@/lib/auth';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
+import Avatar from '@/components/Avatar';
 import {
     ActivityIndicator,
     Image,
@@ -25,19 +26,6 @@ type UserProfile = {
     is_verified: boolean;
     subscription_tier: string;
 };
-
-function Avatar({ url, username, size = 44 }: { url?: string | null; username: string; size?: number }) {
-    if (url) {
-        return <Image source={{ uri: url }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
-    }
-    return (
-        <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#F5C400', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: size * 0.4, fontWeight: '800', color: '#1a1a1a' }}>
-                {username?.[0]?.toUpperCase() ?? '?'}
-            </Text>
-        </View>
-    );
-}
 
 export default function Search() {
     const router = useRouter();

@@ -54,7 +54,7 @@ export default function Popular() {
                 .from('users')
                 .select('username, avatar_url, is_verified')
                 .eq('id', user.id)
-                .single();
+                .maybeSingle(); // Use maybeSingle to avoid errors if user not found yet
 
             if (userError) {
                 console.warn('[fetchTrades] User Fetch Error:', userError.message);

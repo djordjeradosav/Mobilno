@@ -258,11 +258,11 @@ export default function Popular() {
                             <Svg height="120" width={SCREEN_WIDTH - 40}>
                                 {chartData.map((val, i) => {
                                     if (i === 0) return null;
-                                    const prev = chartData[i-1];
+                                    const prev = chartData[i - 1];
                                     const max = Math.max(...chartData, 1);
                                     const min = Math.min(...chartData, -1);
-                                    const range = max - min;
-                                    const x1 = ((i-1) / (chartData.length - 1)) * (SCREEN_WIDTH - 40);
+                                    const range = max === min ? 1 : max - min;
+                                    const x1 = ((i - 1) / (chartData.length - 1)) * (SCREEN_WIDTH - 40);
                                     const x2 = (i / (chartData.length - 1)) * (SCREEN_WIDTH - 40);
                                     const y1 = 120 - ((prev - min) / range) * 120;
                                     const y2 = 120 - ((val - min) / range) * 120;

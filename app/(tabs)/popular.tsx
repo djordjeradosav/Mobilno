@@ -33,20 +33,41 @@ export default function Popular() {
     const fetchTrades = useCallback(async () => {
         if (!user?.id) return;
         try {
-            const { data, error } = await supabase
+            // 1. Fetch trades only (avoiding relationship errors)
+            const { data: tradesData, error: tradesError } = await supabase
                 .from('trades')
-                .select('*, users!trades_user_id_fkey(username, avatar_url, is_verified)')
+                .select('*')
                 .eq('user_id', user.id)
                 .order('trade_date', { ascending: false });
 
-            if (error) {
-                console.error('[fetchTrades] Supabase Error:', error.message);
-                // If the error is about a missing column, it means the SQL migration hasn't been run yet
-                if (error.message.includes('column "trade_date" does not exist')) {
-                    console.warn('The "trade_date" column is missing. Please run the repair_trades.sql script in Supabase.');
+            if (tradesError) {
+                console.error('[fetchTrades] Trades Fetch Error:', tradesError.message);
+                if (tradesError.message.includes('column "trade_date" does not exist')) {
+                    console.warn('The "trade_date" column is missing. Please run the repair_trades.sql script.');
                 }
+                setLoading(false);
+                return;
             }
-            if (data) setTrades(data as Trade[]);
+
+            // 2. Fetch user profile separately
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('username, avatar_url, is_verified')
+                .eq('id', user.id)
+                .single();
+
+            if (userError) {
+                console.warn('[fetchTrades] User Fetch Error:', userError.message);
+            }
+
+            // 3. Manually join the data
+            if (tradesData) {
+                const combinedTrades = tradesData.map(t => ({
+                    ...t,
+                    users: userData || { username: 'Trader', avatar_url: null, is_verified: false }
+                }));
+                setTrades(combinedTrades as Trade[]);
+            }
         } catch (err) {
             console.error('[fetchTrades] Unexpected Error:', err);
         } finally {

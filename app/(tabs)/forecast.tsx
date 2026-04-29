@@ -68,8 +68,8 @@ export default function CreateForecast() {
         const { error } = await supabase.rpc('add_new_trade', {
             p_symbol: symbol.trim().toUpperCase(),
             p_trade_type: tradeType,
-            p_entry_price: entryPrice ? Number(entryPrice) : null,
-            p_exit_price: exitPrice ? Number(exitPrice) : null,
+            p_entry_price: entryPrice ? Number(entryPrice) : 0,
+            p_exit_price: exitPrice ? Number(exitPrice) : 0,
             p_money_value: Number(moneyValue),
             p_trade_date: date,
             p_tradingview_link: tvLink.trim() || null,

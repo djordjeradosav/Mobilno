@@ -49,24 +49,31 @@ export default function Popular() {
                 return;
             }
 
-            // 2. Fetch user profile separately
-            const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('username, avatar_url, is_verified')
-                .eq('id', user.id)
-                .maybeSingle(); // Use maybeSingle to avoid errors if user not found yet
+            // 2. Fetch user profiles for all unique user_ids in tradesData
+            if (tradesData && tradesData.length > 0) {
+                const userIds = [...new Set(tradesData.map(t => t.user_id))];
+                const { data: usersData, error: usersError } = await supabase
+                    .from('users')
+                    .select('id, username, avatar_url, is_verified')
+                    .in('id', userIds);
 
-            if (userError) {
-                console.warn('[fetchTrades] User Fetch Error:', userError.message);
-            }
+                if (usersError) {
+                    console.warn('[fetchTrades] Users Fetch Error:', usersError.message);
+                }
 
-            // 3. Manually join the data
-            if (tradesData) {
+                // 3. Manually join the data
+                const userMap = (usersData || []).reduce((acc: any, u) => {
+                    acc[u.id] = { username: u.username, avatar_url: u.avatar_url, is_verified: u.is_verified };
+                    return acc;
+                }, {});
+
                 const combinedTrades = tradesData.map(t => ({
                     ...t,
-                    users: userData || { username: 'Trader', avatar_url: null, is_verified: false }
+                    users: userMap[t.user_id] || { username: 'Trader', avatar_url: null, is_verified: false }
                 }));
                 setTrades(combinedTrades as Trade[]);
+            } else if (tradesData) {
+                setTrades([]);
             }
         } catch (err) {
             console.error('[fetchTrades] Unexpected Error:', err);

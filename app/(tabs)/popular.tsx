@@ -41,21 +41,42 @@ export default function Popular() {
     const fetchTrades = useCallback(async () => {
         if (!user?.id) return;
         try {
-            const { data: tradesData, error: tradesError } = await supabase
-                .from('trades')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('trade_date', { ascending: false });
+            // Fetch from both 'trades' and 'forecasts' tables
+            const [tradesRes, forecastsRes] = await Promise.all([
+                supabase
+                    .from('trades')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('trade_date', { ascending: false }),
+                supabase
+                    .from('forecasts')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+            ]);
 
-            if (tradesError) {
-                console.error('[fetchTrades] Trades Fetch Error:', tradesError.message);
-                setLoading(false);
-                return;
+            if (tradesRes.error) {
+                console.error('[fetchTrades] Trades Fetch Error:', tradesRes.error.message);
+            }
+            if (forecastsRes.error) {
+                console.error('[fetchTrades] Forecasts Fetch Error:', forecastsRes.error.message);
             }
 
-            if (tradesData && tradesData.length > 0) {
-                const userIds = [...new Set(tradesData.map(t => t.user_id))];
-                const { data: usersData, error: usersError } = await supabase
+            const tradesData = tradesRes.data || [];
+            const forecastsData = (forecastsRes.data || []).map(f => ({
+                ...f,
+                // Map forecast fields to trade fields for the calendar
+                symbol: f.currency_pair || 'Unknown',
+                money_value: f.profit || 0,
+                trade_date: f.created_at, // Use created_at as trade_date for forecasts
+                trade_type: f.profit >= 0 ? 'Buy' : 'Sell', // Heuristic mapping
+            }));
+
+            const allTrades = [...tradesData, ...forecastsData];
+
+            if (allTrades.length > 0) {
+                const userIds = [...new Set(allTrades.map(t => t.user_id))];
+                const { data: usersData } = await supabase
                     .from('users')
                     .select('id, username, avatar_url, is_verified')
                     .in('id', userIds);
@@ -65,12 +86,12 @@ export default function Popular() {
                     return acc;
                 }, {});
 
-                const combinedTrades = tradesData.map(t => ({
+                const combinedTrades = allTrades.map(t => ({
                     ...t,
                     users: userMap[t.user_id] || { username: 'Trader', avatar_url: null, is_verified: false }
                 }));
                 setTrades(combinedTrades as Trade[]);
-            } else if (tradesData) {
+            } else {
                 setTrades([]);
             }
         } catch (err) {

@@ -12,6 +12,7 @@ import {
     View,
     RefreshControl,
     Dimensions,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Svg, Path, Rect, Line, Polyline } from 'react-native-svg';
@@ -332,9 +333,32 @@ export default function Popular() {
                                     <Text style={[styles.td, { color: trade.trade_type === 'Buy' ? '#3182CE' : '#E53E3E', fontWeight: '700' }]}>
                                         {trade.trade_type}
                                     </Text>
-                                    <Text style={[styles.td, { textAlign: 'right', fontWeight: '800', color: trade.money_value >= 0 ? '#059669' : '#dc2626' }]}>
-                                        {trade.money_value >= 0 ? '+' : '-'}${Math.abs(trade.money_value).toFixed(2)}
-                                    </Text>
+                                    <View style={[styles.td, { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }]}>
+                                        <Text style={{ fontWeight: '800', color: trade.money_value >= 0 ? '#059669' : '#dc2626' }}>
+                                            {trade.money_value >= 0 ? '+' : '-'}${Math.abs(trade.money_value).toFixed(2)}
+                                        </Text>
+                                        {trade.user_id === user?.id && (
+                                            <TouchableOpacity 
+                                                onPress={async () => {
+                                                    Alert.alert('Delete Trade', 'Are you sure?', [
+                                                        { text: 'Cancel', style: 'cancel' },
+                                                        { 
+                                                            text: 'Delete', 
+                                                            style: 'destructive', 
+                                                            onPress: async () => {
+                                                                const { error } = await supabase.from('trades').delete().eq('id', trade.id);
+                                                                if (!error) fetchTrades();
+                                                                else Alert.alert('Error', 'Could not delete');
+                                                            }
+                                                        }
+                                                    ]);
+                                                }}
+                                                style={{ padding: 4 }}
+                                            >
+                                                <FontAwesome name="trash-o" size={16} color="#F56565" />
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
                                 </TouchableOpacity>
                             ))}
                         </View>

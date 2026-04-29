@@ -29,7 +29,15 @@ create table public.forecasts (
     currency_pair text not null,
     profit numeric not null default 0,
     likes_count integer not null default 0,
-    created_at timestamptz not null default now()
+    created_at timestamptz not null default now(),
+    -- New fields for Trading Journal
+    trade_date date not null default current_date,
+    trade_type text check (trade_type in ('Buy', 'Sell')),
+    entry_price numeric,
+    exit_price numeric,
+    money_value numeric not null default 0,
+    tradingview_link text,
+    notes text
 );
 create index forecasts_user_idx on public.forecasts(user_id);
 create index forecasts_created_idx on public.forecasts(created_at desc);
@@ -106,11 +114,18 @@ create policy "forecasts_anon_delete" on storage.objects
 
 -- 11. RPC for creating forecasts with a bypass/helper if needed
 -- This function matches the call in forecast.tsx
-create or replace function public.create_forecast_v2(
+create or replace function public.create_forecast_v3(
     p_content text,
     p_currency_pair text,
     p_profit numeric,
-    p_chart_image_url text default null
+    p_chart_image_url text default null,
+    p_trade_date date default current_date,
+    p_trade_type text default 'Buy',
+    p_entry_price numeric default null,
+    p_exit_price numeric default null,
+    p_money_value numeric default 0,
+    p_tradingview_link text default null,
+    p_notes text default null
 )
 returns uuid as $$
 declare
@@ -118,42 +133,23 @@ declare
     v_user_id text;
     v_user_email text;
 begin
-    -- 1. Get the authenticated user ID
     v_user_id := auth.uid()::text;
-    
-    if v_user_id is null then
-        raise exception 'User not authenticated';
-    end if;
+    if v_user_id is null then raise exception 'User not authenticated'; end if;
 
-    -- 2. Ensure the user exists in the public.users table
-    -- This prevents foreign key violations if the user profile hasn't been created yet
     if not exists (select 1 from public.users where id = v_user_id) then
-        -- Get email from auth.users if available
         select email into v_user_email from auth.users where id::text = v_user_id;
-        
         insert into public.users (id, username, email)
-        values (
-            v_user_id, 
-            coalesce(split_part(v_user_email, '@', 1), 'user_' || substr(v_user_id, 1, 8)),
-            coalesce(v_user_email, v_user_id || '@placeholder.com')
-        )
+        values (v_user_id, coalesce(split_part(v_user_email, '@', 1), 'user_' || substr(v_user_id, 1, 8)), coalesce(v_user_email, v_user_id || '@placeholder.com'))
         on conflict (id) do nothing;
     end if;
 
-    -- 3. Insert the forecast
     insert into public.forecasts (
-        user_id,
-        content,
-        currency_pair,
-        profit,
-        chart_image_url
+        user_id, content, currency_pair, profit, chart_image_url,
+        trade_date, trade_type, entry_price, exit_price, money_value, tradingview_link, notes
     )
     values (
-        v_user_id,
-        p_content,
-        p_currency_pair,
-        p_profit,
-        p_chart_image_url
+        v_user_id, p_content, p_currency_pair, p_profit, p_chart_image_url,
+        p_trade_date, p_trade_type, p_entry_price, p_exit_price, p_money_value, p_tradingview_link, p_notes
     )
     returning id into new_id;
     

@@ -224,10 +224,25 @@ export default function TradeDetailsModal({
                             </View>
                             <View style={styles.statDivider} />
                             <View style={styles.stat}>
-                                <Text style={styles.statLabel}>Return</Text>
-                                <Text style={[styles.statValue, { color: isProfitable ? '#059669' : '#dc2626' }]}>
-                                    {isProfitable ? '+' : ''}{forecast.profit.toFixed(2)}%
+                                <Text style={styles.statLabel}>Profit/Loss</Text>
+                                <Text style={[styles.statValue, { color: (forecast.money_value || 0) >= 0 ? '#059669' : '#dc2626' }]}>
+                                    {(forecast.money_value || 0) >= 0 ? '+' : ''}${forecast.money_value?.toFixed(2)}
                                 </Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.detailsGrid}>
+                            <View style={styles.detailItem}>
+                                <Text style={styles.detailLabel}>Type</Text>
+                                <Text style={[styles.detailValue, { color: forecast.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]}>{forecast.trade_type || '—'}</Text>
+                            </View>
+                            <View style={styles.detailItem}>
+                                <Text style={styles.detailLabel}>Entry</Text>
+                                <Text style={styles.detailValue}>${forecast.entry_price || '—'}</Text>
+                            </View>
+                            <View style={styles.detailItem}>
+                                <Text style={styles.detailLabel}>Exit</Text>
+                                <Text style={styles.detailValue}>${forecast.exit_price || '—'}</Text>
                             </View>
                         </View>
 
@@ -318,6 +333,10 @@ const styles = StyleSheet.create({
     statLabel: { fontSize: 11, color: '#aaa', fontWeight: '600' },
     statValue: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
     statDivider: { width: 1, height: 36, backgroundColor: '#eee' },
+    detailsGrid: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 16, marginVertical: 10, gap: 20 },
+    detailItem: { flex: 1 },
+    detailLabel: { fontSize: 11, fontWeight: '800', color: '#A0AEC0', textTransform: 'uppercase' },
+    detailValue: { fontSize: 15, fontWeight: '700', color: '#2D3748', marginTop: 4 },
     chartImage: { width: '100%', height: 240, borderRadius: 16, backgroundColor: '#f5f5f5' },
     analysisBox: { backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 8 },
     analysisTitle: { fontSize: 13, fontWeight: '700', color: '#1a1a1a', textTransform: 'uppercase' },

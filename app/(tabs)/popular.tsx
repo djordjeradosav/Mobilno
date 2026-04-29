@@ -1,180 +1,214 @@
-import ForecastCard, { Forecast } from '@/components/ForecastCard';
-import TradeDetailsModal from '@/components/TradeDetailsModal';
+import { Calendar } from 'react-native-calendars';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
     ActivityIndicator,
-    FlatList,
-    RefreshControl,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
+    RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Forecast } from '@/components/ForecastCard';
+import TradeDetailsModal from '@/components/TradeDetailsModal';
 
 export default function Popular() {
     const { user } = useAuth();
-    const [forecasts, setForecasts] = useState<Forecast[]>([]);
+    const [trades, setTrades] = useState<Forecast[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [activeTab, setActiveTab] = useState<'followed' | 'all'>('all');
-    const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
-    const [selectedForecast, setSelectedForecast] = useState<Forecast | null>(null);
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedTrade, setSelectedTrade] = useState<Forecast | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
 
-    const fetchLikes = useCallback(async () => {
+    const fetchTrades = useCallback(async () => {
         if (!user?.id) return;
-        const { data } = await supabase
-            .from('likes')
-            .select('forecast_id')
-            .eq('user_id', user.id);
-        if (data) setLikedIds(new Set(data.map(l => l.forecast_id)));
+        const { data, error } = await supabase
+            .from('forecasts')
+            .select('*, users!forecasts_user_id_fkey(username, avatar_url, is_verified)')
+            .eq('user_id', user.id)
+            .order('trade_date', { ascending: false });
+
+        if (error) console.error('[fetchTrades]', error.message);
+        if (data) setTrades(data as Forecast[]);
+        setLoading(false);
     }, [user?.id]);
 
-    const fetchForecasts = useCallback(async () => {
-        if (!user?.id) return;
-
-        let query = supabase
-            .from('forecasts')
-            .select('*, users!forecasts_user_id_fkey(username, avatar_url, is_verified)');
-
-        if (activeTab === 'followed') {
-            // Get IDs of users being followed
-            const { data: followingData } = await supabase
-                .from('follows')
-                .select('followed_id')
-                .eq('follower_id', user.id);
-
-            const followedIds = followingData?.map(f => f.followed_id) || [];
-            if (followedIds.length > 0) {
-                query = query.in('user_id', followedIds);
-            } else {
-                setForecasts([]);
-                setLoading(false);
-                return;
-            }
-        }
-
-        const { data, error } = await query
-            .order('created_at', { ascending: false })
-            .limit(30);
-
-        if (error) console.error('[fetchForecasts]', error.message);
-        if (data) setForecasts(data as Forecast[]);
-        setLoading(false);
-    }, [user?.id, activeTab]);
-
     useEffect(() => {
-        setLoading(true);
-        fetchForecasts();
-        fetchLikes();
-    }, [fetchForecasts, fetchLikes]);
+        fetchTrades();
+    }, [fetchTrades]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([fetchForecasts(), fetchLikes()]);
+        await fetchTrades();
         setRefreshing(false);
-    }, [fetchForecasts, fetchLikes]);
+    }, [fetchTrades]);
 
-    const handleLike = async (forecastId: string) => {
-        if (!user?.id) return;
-        const isLiked = likedIds.has(forecastId);
+    // Group trades by date and calculate profit/loss for each day
+    const markedDates = useMemo(() => {
+        const marked: any = {};
+        const dailyPL: { [key: string]: number } = {};
 
-        setLikedIds(prev => {
-            const next = new Set(prev);
-            if (isLiked) next.delete(forecastId);
-            else next.add(forecastId);
-            return next;
+        trades.forEach(trade => {
+            const date = trade.trade_date || trade.created_at.split('T')[0];
+            dailyPL[date] = (dailyPL[date] || 0) + (trade.money_value || 0);
         });
 
-        if (isLiked) {
-            await supabase.from('likes').delete().eq('user_id', user.id).eq('forecast_id', forecastId);
-            await supabase.rpc('decrement_likes', { forecast_id: forecastId });
-        } else {
-            await supabase.from('likes').insert({ user_id: user.id, forecast_id: forecastId });
-            await supabase.rpc('increment_likes', { forecast_id: forecastId });
-        }
-    };
+        Object.keys(dailyPL).forEach(date => {
+            const pl = dailyPL[date];
+            marked[date] = {
+                marked: true,
+                dotColor: pl > 0 ? '#48BB78' : pl < 0 ? '#F56565' : '#CBD5E0',
+                customStyles: {
+                    container: {
+                        backgroundColor: pl > 0 ? '#F0FFF4' : pl < 0 ? '#FFF5F5' : '#F7FAFC',
+                        borderRadius: 8,
+                    },
+                    text: {
+                        color: pl > 0 ? '#2F855A' : pl < 0 ? '#C53030' : '#4A5568',
+                        fontWeight: 'bold',
+                    }
+                }
+            };
+        });
+
+        // Highlight selected date
+        marked[selectedDate] = {
+            ...marked[selectedDate],
+            selected: true,
+            selectedColor: '#4299E1',
+        };
+
+        return marked;
+    }, [trades, selectedDate]);
+
+    const selectedDayTrades = useMemo(() => {
+        return trades.filter(t => (t.trade_date || t.created_at.split('T')[0]) === selectedDate);
+    }, [trades, selectedDate]);
+
+    const totalPL = useMemo(() => {
+        return selectedDayTrades.reduce((sum, t) => sum + (t.money_value || 0), 0);
+    }, [selectedDayTrades]);
 
     return (
         <SafeAreaView style={styles.root} edges={['top']}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Ticksnap Feed</Text>
-                <View style={styles.tabs}>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'all' && styles.tabActive]}
-                        onPress={() => setActiveTab('all')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>Explore</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'followed' && styles.tabActive]}
-                        onPress={() => setActiveTab('followed')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'followed' && styles.tabTextActive]}>Following</Text>
-                    </TouchableOpacity>
-                </View>
+                <Text style={styles.headerTitle}>Trading Calendar</Text>
+                <Text style={styles.headerSub}>Track your daily performance</Text>
             </View>
 
-            {loading ? (
-                <View style={styles.loader}>
-                    <ActivityIndicator size="large" color="#F5C400" />
+            <ScrollView 
+                style={styles.container} 
+                showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4299E1" />}
+            >
+                <View style={styles.calendarCard}>
+                    <Calendar
+                        onDayPress={day => setSelectedDate(day.dateString)}
+                        markedDates={markedDates}
+                        theme={{
+                            calendarBackground: '#ffffff',
+                            textSectionTitleColor: '#b6c1cd',
+                            selectedDayBackgroundColor: '#4299E1',
+                            selectedDayTextColor: '#ffffff',
+                            todayTextColor: '#4299E1',
+                            dayTextColor: '#2d4150',
+                            textDisabledColor: '#d9e1e8',
+                            dotColor: '#4299E1',
+                            selectedDotColor: '#ffffff',
+                            arrowColor: '#4299E1',
+                            monthTextColor: '#2d3748',
+                            indicatorColor: '#4299E1',
+                            textDayFontWeight: '600',
+                            textMonthFontWeight: 'bold',
+                            textDayHeaderFontWeight: '600',
+                            textDayFontSize: 14,
+                            textMonthFontSize: 16,
+                            textDayHeaderFontSize: 12
+                        }}
+                    />
                 </View>
-            ) : (
-                <FlatList
-                    data={forecasts}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.list}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F5C400" />
-                    }
-                    ListEmptyComponent={
-                        <View style={styles.emptyState}>
-                            <Text style={styles.emptyTitle}>
-                                {activeTab === 'followed' ? "You're not following anyone yet" : "No forecasts found"}
-                            </Text>
-                            <Text style={styles.emptySubtitle}>
-                                {activeTab === 'followed' ? "Follow other traders to see their posts here!" : "Be the first to share a trade!"}
+
+                <View style={styles.detailsSection}>
+                    <View style={styles.detailsHeader}>
+                        <Text style={styles.detailsTitle}>
+                            {new Date(selectedDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                        </Text>
+                        <View style={[styles.plBadge, { backgroundColor: totalPL >= 0 ? '#F0FFF4' : '#FFF5F5' }]}>
+                            <Text style={[styles.plText, { color: totalPL >= 0 ? '#2F855A' : '#C53030' }]}>
+                                {totalPL >= 0 ? '+' : ''}${totalPL.toFixed(2)}
                             </Text>
                         </View>
-                    }
-                    renderItem={({ item }) => (
-                        <ForecastCard
-                            forecast={item}
-                            isLiked={likedIds.has(item.id)}
-                            onLike={() => handleLike(item.id)}
-                            onPress={() => { setSelectedForecast(item); setModalVisible(true); }}
-                        />
+                    </View>
+
+                    {loading ? (
+                        <ActivityIndicator color="#4299E1" style={{ marginTop: 20 }} />
+                    ) : selectedDayTrades.length > 0 ? (
+                        selectedDayTrades.map(trade => (
+                            <TouchableOpacity 
+                                key={trade.id} 
+                                style={styles.tradeItem}
+                                onPress={() => { setSelectedTrade(trade); setModalVisible(true); }}
+                            >
+                                <View style={styles.tradeMain}>
+                                    <View style={[styles.typeIndicator, { backgroundColor: trade.trade_type === 'Buy' ? '#4299E1' : '#F56565' }]} />
+                                    <View>
+                                        <Text style={styles.tradeSymbol}>{trade.currency_pair}</Text>
+                                        <Text style={styles.tradeType}>{trade.trade_type} @ {trade.entry_price || '—'}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.tradeRight}>
+                                    <Text style={[styles.tradeValue, { color: (trade.money_value || 0) >= 0 ? '#2F855A' : '#C53030' }]}>
+                                        {(trade.money_value || 0) >= 0 ? '+' : ''}${trade.money_value?.toFixed(2)}
+                                    </Text>
+                                    <Text style={styles.tradeTime}>{trade.created_at.split('T')[1].slice(0, 5)}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        ))
+                    ) : (
+                        <View style={styles.emptyState}>
+                            <Text style={styles.emptyText}>No trades recorded for this day.</Text>
+                        </View>
                     )}
-                />
-            )}
+                </View>
+            </ScrollView>
 
             <TradeDetailsModal
                 visible={modalVisible}
-                forecast={selectedForecast}
+                forecast={selectedTrade}
                 onClose={() => setModalVisible(false)}
-                onLike={handleLike}
-                isLiked={selectedForecast ? likedIds.has(selectedForecast.id) : false}
+                onLike={() => {}}
+                isLiked={false}
                 currentUserId={user?.id}
+                onUpdate={fetchTrades}
             />
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#F5F5F3' },
-    loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
-    headerTitle: { fontSize: 28, fontWeight: '900', color: '#1a1a1a', letterSpacing: -0.5 },
-    tabs: { flexDirection: 'row', gap: 16, marginTop: 16 },
-    tab: { paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-    tabActive: { borderBottomColor: '#F5C400' },
-    tabText: { fontSize: 15, fontWeight: '700', color: '#888' },
-    tabTextActive: { color: '#1a1a1a' },
-    list: { paddingHorizontal: 16, paddingBottom: 40, paddingTop: 8 },
-    emptyState: { alignItems: 'center', marginTop: 80, paddingHorizontal: 40 },
-    emptyTitle: { fontSize: 18, fontWeight: '800', color: '#1a1a1a', textAlign: 'center' },
-    emptySubtitle: { fontSize: 14, color: '#aaa', textAlign: 'center', marginTop: 8, lineHeight: 20 },
+    root: { flex: 1, backgroundColor: '#F7FAFC' },
+    header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
+    headerTitle: { fontSize: 26, fontWeight: '800', color: '#1A202C' },
+    headerSub: { fontSize: 14, color: '#718096', marginTop: 2 },
+    container: { flex: 1 },
+    calendarCard: { backgroundColor: '#fff', margin: 16, borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
+    detailsSection: { paddingHorizontal: 16, paddingBottom: 40 },
+    detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    detailsTitle: { fontSize: 18, fontWeight: '700', color: '#2D3748' },
+    plBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+    plText: { fontSize: 16, fontWeight: '800' },
+    tradeItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 16, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 5, elevation: 1 },
+    tradeMain: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    typeIndicator: { width: 4, height: 32, borderRadius: 2 },
+    tradeSymbol: { fontSize: 16, fontWeight: '700', color: '#2D3748' },
+    tradeType: { fontSize: 13, color: '#718096', fontWeight: '500' },
+    tradeRight: { alignItems: 'flex-end' },
+    tradeValue: { fontSize: 16, fontWeight: '800' },
+    tradeTime: { fontSize: 11, color: '#A0AEC0', marginTop: 2 },
+    emptyState: { alignItems: 'center', paddingVertical: 40 },
+    emptyText: { color: '#A0AEC0', fontSize: 15, fontWeight: '500' },
 });

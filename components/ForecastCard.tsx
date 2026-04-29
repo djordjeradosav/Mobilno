@@ -39,6 +39,14 @@ export type Forecast = {
   likes_count: number;
   comments_count: number;
   created_at: string;
+  // New fields
+  trade_date?: string;
+  trade_type?: 'Buy' | 'Sell';
+  entry_price?: number;
+  exit_price?: number;
+  money_value?: number;
+  tradingview_link?: string;
+  notes?: string;
   users?: {
     username: string;
     avatar_url: string | null;
@@ -119,20 +127,27 @@ export default function ForecastCard({
             <Text style={styles.time}>{timeAgo(forecast.created_at)}</Text>
           </View>
         </TouchableOpacity>
-        <View
-          style={[
-            styles.pairBadge,
-            { backgroundColor: isProfitable ? '#ecfdf5' : '#fef2f2' },
-          ]}
-        >
-          <Text
+        <View style={styles.badgeRow}>
+          {forecast.trade_type && (
+            <View style={[styles.typeBadge, { backgroundColor: forecast.trade_type === 'Buy' ? '#EBF8FF' : '#FFF5F5' }]}>
+              <Text style={[styles.typeBadgeText, { color: forecast.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]}>{forecast.trade_type}</Text>
+            </View>
+          )}
+          <View
             style={[
-              styles.pairText,
-              { color: isProfitable ? '#059669' : '#dc2626' },
+              styles.pairBadge,
+              { backgroundColor: isProfitable ? '#ecfdf5' : '#fef2f2' },
             ]}
           >
-            {forecast.currency_pair}
-          </Text>
+            <Text
+              style={[
+                styles.pairText,
+                { color: isProfitable ? '#059669' : '#dc2626' },
+              ]}
+            >
+              {forecast.currency_pair}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -208,6 +223,9 @@ const styles = StyleSheet.create({
   userNameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   username: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
   time: { fontSize: 12, color: '#aaa', fontWeight: '500' },
+  badgeRow: { flexDirection: 'row', gap: 6 },
+  typeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  typeBadgeText: { fontSize: 10, fontWeight: '800' },
   pairBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   pairText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   content: { fontSize: 14, color: '#444', lineHeight: 21, fontWeight: '400' },

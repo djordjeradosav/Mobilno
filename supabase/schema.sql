@@ -103,3 +103,44 @@ create policy "forecasts_anon_insert" on storage.objects
 
 create policy "forecasts_anon_delete" on storage.objects
     for delete using (bucket_id = 'forecasts');
+
+-- 11. RPC for creating forecasts with a bypass/helper if needed
+-- This function matches the call in forecast.tsx
+create or replace function public.create_forecast_v2(
+    p_content text,
+    p_currency_pair text,
+    p_profit numeric,
+    p_chart_image_url text default null
+)
+returns uuid as $$
+declare
+    new_id uuid;
+    v_user_id text;
+begin
+    -- Try to get the user ID from auth.uid() (works for Supabase Auth)
+    -- If it's null, we might be in a different auth context, but the app expects this to work.
+    v_user_id := auth.uid()::text;
+    
+    if v_user_id is null then
+        raise exception 'User not authenticated';
+    end if;
+
+    insert into public.forecasts (
+        user_id,
+        content,
+        currency_pair,
+        profit,
+        chart_image_url
+    )
+    values (
+        v_user_id,
+        p_content,
+        p_currency_pair,
+        p_profit,
+        p_chart_image_url
+    )
+    returning id into new_id;
+    
+    return new_id;
+end;
+$$ language plpgsql security definer;

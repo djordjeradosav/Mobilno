@@ -1,61 +1,37 @@
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
+    View,
+    Text,
+    StyleSheet,
+    Modal,
+    TouchableOpacity,
     Animated,
     Dimensions,
-    Image,
-    Modal,
-    PanResponder,
     ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+    PanResponder,
     TextInput,
-    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
+    Image,
 } from 'react-native';
-import { Forecast } from './ForecastCard';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
+import { Trade, getTradingViewImageUrl } from './ForecastCard';
+import Avatar from './Avatar';
 
 const { height: SCREEN_H } = Dimensions.get('window');
-const SHEET_H = SCREEN_H * 0.9;
-
-type Comment = {
-    id: string;
-    content: string;
-    created_at: string;
-    user_id: string;
-    users: {
-        username: string;
-        avatar_url: string | null;
-    };
-};
+const SHEET_H = SCREEN_H * 0.85;
 
 type Props = {
     visible: boolean;
-    forecast: Forecast | null;
+    forecast: Trade | null;
     onClose: () => void;
-    onLike: (id: string) => void;
+    onLike: () => void;
     isLiked: boolean;
     currentUserId?: string;
     onUpdate?: () => void;
 };
-
-function Avatar({ url, username, size = 32 }: { url?: string | null; username: string; size?: number }) {
-    if (url) {
-        return <Image source={{ uri: url }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
-    }
-    return (
-        <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#F5C400', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: size * 0.4, fontWeight: '800', color: '#1a1a1a' }}>
-                {username?.[0]?.toUpperCase() ?? '?'}
-            </Text>
-        </View>
-    );
-}
 
 export default function TradeDetailsModal({
     visible,
@@ -68,36 +44,41 @@ export default function TradeDetailsModal({
 }: Props) {
     const slideAnim = useRef(new Animated.Value(SHEET_H)).current;
     const backdropAnim = useRef(new Animated.Value(0)).current;
-
-    const [comments, setComments] = useState<Comment[]>([]);
-    const [newComment, setNewComment] = useState('');
-    const [loadingComments, setLoadingComments] = useState(false);
-    const [submittingComment, setSubmittingComment] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState('');
+    const [editSymbol, setEditSymbol] = useState('');
+    const [editMoneyValue, setEditMoneyValue] = useState('');
+    const [editTradeType, setEditTradeType] = useState<'Buy' | 'Sell'>('Buy');
+    const [editEntryPrice, setEditEntryPrice] = useState('');
+    const [editExitPrice, setEditExitPrice] = useState('');
+    const [comments, setComments] = useState<any[]>([]);
+    const [newComment, setNewComment] = useState('');
+    const [submittingComment, setSubmittingComment] = useState(false);
 
     const fetchComments = useCallback(async () => {
         if (!forecast?.id) return;
-        setLoadingComments(true);
         const { data, error } = await supabase
             .from('comments')
             .select('*, users(username, avatar_url)')
-            .eq('forecast_id', forecast.id)
+            .eq('trade_id', forecast.id)
             .order('created_at', { ascending: true });
 
-        if (error) console.error('[fetchComments]', error.message);
-        if (data) setComments(data as Comment[]);
-        setLoadingComments(false);
+        if (!error && data) setComments(data);
     }, [forecast?.id]);
 
     useEffect(() => {
         if (visible) {
-            fetchComments();
-            setEditContent(forecast?.content || '');
+            setEditContent(forecast?.notes || '');
+            setEditSymbol(forecast?.symbol || '');
+            setEditMoneyValue(forecast?.money_value?.toString() || '');
+            setEditTradeType(forecast?.trade_type || 'Buy');
+            setEditEntryPrice(forecast?.entry_price?.toString() || '');
+            setEditExitPrice(forecast?.exit_price?.toString() || '');
             setIsEditing(false);
+            fetchComments();
             Animated.parallel([
-                Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
-                Animated.timing(backdropAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
+                Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+                Animated.timing(backdropAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
             ]).start();
         } else {
             Animated.parallel([
@@ -105,7 +86,7 @@ export default function TradeDetailsModal({
                 Animated.timing(backdropAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
             ]).start();
         }
-    }, [visible, fetchComments, forecast?.content]);
+    }, [visible, fetchComments, forecast?.notes, forecast?.symbol, forecast?.money_value, forecast?.trade_type, forecast?.entry_price, forecast?.exit_price]);
 
     const handleAddComment = async () => {
         if (!newComment.trim() || !currentUserId || !forecast?.id) return;
@@ -113,7 +94,7 @@ export default function TradeDetailsModal({
         const { error } = await supabase
             .from('comments')
             .insert({
-                forecast_id: forecast.id,
+                trade_id: forecast.id,
                 user_id: currentUserId,
                 content: newComment.trim()
             });
@@ -123,37 +104,45 @@ export default function TradeDetailsModal({
         } else {
             setNewComment('');
             fetchComments();
-            await supabase.rpc('increment_comments', { forecast_id: forecast.id });
         }
         setSubmittingComment(false);
     };
 
-    const handleUpdateForecast = async () => {
-        if (!forecast?.id || !editContent.trim()) return;
+    const handleUpdateTrade = async () => {
+        if (!forecast?.id) return;
+        const updateData: any = {
+            notes: editContent.trim(),
+            symbol: editSymbol.trim().toUpperCase() || forecast.symbol,
+            money_value: editMoneyValue ? Number(editMoneyValue) : forecast.money_value,
+            trade_type: editTradeType,
+        };
+        if (editEntryPrice) updateData.entry_price = Number(editEntryPrice);
+        if (editExitPrice) updateData.exit_price = Number(editExitPrice);
+
         const { error } = await supabase
-            .from('forecasts')
-            .update({ content: editContent.trim() })
+            .from('trades')
+            .update(updateData)
             .eq('id', forecast.id);
 
         if (error) {
-            Alert.alert('Error', 'Could not update forecast');
+            Alert.alert('Error', 'Could not update trade');
         } else {
             setIsEditing(false);
             if (onUpdate) onUpdate();
-            Alert.alert('Success', 'Forecast updated');
+            Alert.alert('Success', 'Trade updated');
         }
     };
 
-    const handleDeleteForecast = async () => {
+    const handleDeleteTrade = async () => {
         if (!forecast?.id) return;
-        Alert.alert('Delete Forecast', 'Are you sure you want to delete this post?', [
+        Alert.alert('Delete Trade', 'Are you sure you want to delete this trade?', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Delete',
                 style: 'destructive',
                 onPress: async () => {
-                    const { error } = await supabase.from('forecasts').delete().eq('id', forecast.id);
-                    if (error) Alert.alert('Error', 'Could not delete forecast');
+                    const { error } = await supabase.from('trades').delete().eq('id', forecast.id);
+                    if (error) Alert.alert('Error', 'Could not delete trade');
                     else {
                         onClose();
                         if (onUpdate) onUpdate();
@@ -177,7 +166,7 @@ export default function TradeDetailsModal({
     if (!forecast) return null;
 
     const user = forecast.users;
-    const isProfitable = forecast.profit >= 0;
+    const isProfitable = (forecast.money_value || 0) >= 0;
     const isOwner = currentUserId === forecast.user_id;
 
     return (
@@ -200,43 +189,132 @@ export default function TradeDetailsModal({
                             <Avatar url={user?.avatar_url} username={user?.username ?? '?'} size={44} />
                             <View style={styles.headerInfo}>
                                 <View style={styles.usernameRow}>
-                                    <Text style={styles.username}>@{user?.username ?? 'unknown'}</Text>
-                                    {user?.is_verified && <MaterialIcons name="verified" size={16} color="#F5C400" />}
+                                    <Text style={styles.username}>{user?.username ?? 'Trader'}</Text>
+                                    {user?.is_verified && <MaterialIcons name="verified" size={14} color="#F5C400" />}
                                 </View>
-                                <Text style={styles.timestamp}>{new Date(forecast.created_at).toLocaleString()}</Text>
+                                <Text style={styles.timestamp}>{new Date(forecast.created_at).toLocaleDateString()}</Text>
                             </View>
                             {isOwner && (
                                 <View style={styles.ownerActions}>
-                                    <TouchableOpacity onPress={() => setIsEditing(!isEditing)} style={styles.iconBtn}>
-                                        <FontAwesome name="edit" size={18} color="#666" />
+                                    <TouchableOpacity style={styles.iconBtn} onPress={() => setIsEditing(!isEditing)}>
+                                        <FontAwesome name="edit" size={20} color="#4299E1" />
                                     </TouchableOpacity>
-                                    <TouchableOpacity onPress={handleDeleteForecast} style={styles.iconBtn}>
-                                        <FontAwesome name="trash-o" size={18} color="#ef4444" />
+                                    <TouchableOpacity style={styles.iconBtn} onPress={handleDeleteTrade}>
+                                        <FontAwesome name="trash" size={20} color="#F56565" />
                                     </TouchableOpacity>
                                 </View>
                             )}
                         </View>
 
-                        <View style={styles.statsRow}>
-                            <View style={styles.stat}>
-                                <Text style={styles.statLabel}>Pair</Text>
-                                <Text style={styles.statValue}>{forecast.currency_pair}</Text>
+                        {isEditing ? (
+                            <View style={styles.editGrid}>
+                                <View style={styles.editField}>
+                                    <Text style={styles.editLabel}>Symbol</Text>
+                                    <TextInput
+                                        style={styles.editTextInput}
+                                        value={editSymbol}
+                                        onChangeText={setEditSymbol}
+                                        placeholder="BTC, AAPL, etc."
+                                    />
+                                </View>
+                                <View style={styles.editField}>
+                                    <Text style={styles.editLabel}>P&L ($)</Text>
+                                    <TextInput
+                                        style={styles.editTextInput}
+                                        value={editMoneyValue}
+                                        onChangeText={setEditMoneyValue}
+                                        keyboardType="decimal-pad"
+                                        placeholder="0.00"
+                                    />
+                                </View>
+                                <View style={styles.editField}>
+                                    <Text style={styles.editLabel}>Type</Text>
+                                    <View style={styles.typeButtonsRow}>
+                                        <TouchableOpacity
+                                            style={[styles.typeButton, editTradeType === 'Buy' && styles.typeButtonActive]}
+                                            onPress={() => setEditTradeType('Buy')}
+                                        >
+                                            <Text style={[styles.typeButtonText, editTradeType === 'Buy' && styles.typeButtonTextActive]}>Buy</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.typeButton, editTradeType === 'Sell' && styles.typeButtonActive]}
+                                            onPress={() => setEditTradeType('Sell')}
+                                        >
+                                            <Text style={[styles.typeButtonText, editTradeType === 'Sell' && styles.typeButtonTextActive]}>Sell</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                                <View style={styles.editField}>
+                                    <Text style={styles.editLabel}>Entry ($)</Text>
+                                    <TextInput
+                                        style={styles.editTextInput}
+                                        value={editEntryPrice}
+                                        onChangeText={setEditEntryPrice}
+                                        keyboardType="decimal-pad"
+                                        placeholder="0.00"
+                                    />
+                                </View>
+                                <View style={styles.editField}>
+                                    <Text style={styles.editLabel}>Exit ($)</Text>
+                                    <TextInput
+                                        style={styles.editTextInput}
+                                        value={editExitPrice}
+                                        onChangeText={setEditExitPrice}
+                                        keyboardType="decimal-pad"
+                                        placeholder="0.00"
+                                    />
+                                </View>
+                                <TouchableOpacity style={styles.saveBtn} onPress={handleUpdateTrade}>
+                                    <Text style={styles.saveBtnText}>Save All Changes</Text>
+                                </TouchableOpacity>
                             </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.stat}>
-                                <Text style={styles.statLabel}>Return</Text>
-                                <Text style={[styles.statValue, { color: isProfitable ? '#059669' : '#dc2626' }]}>
-                                    {isProfitable ? '+' : ''}{forecast.profit.toFixed(2)}%
-                                </Text>
-                            </View>
-                        </View>
+                        ) : (
+                            <>
+                                <View style={styles.statsRow}>
+                                    <View style={styles.stat}>
+                                        <Text style={styles.statLabel}>Symbol</Text>
+                                        <Text style={styles.statValue}>{forecast.symbol}</Text>
+                                    </View>
+                                    <View style={styles.statDivider} />
+                                    <View style={styles.stat}>
+                                        <Text style={styles.statLabel}>Profit/Loss</Text>
+                                        <Text style={[styles.statValue, { color: (forecast.money_value || 0) >= 0 ? '#059669' : '#dc2626' }]}>
+                                            {(forecast.money_value || 0) >= 0 ? '+' : ''}${forecast.money_value?.toFixed(2)}
+                                        </Text>
+                                    </View>
+                                </View>
 
-                        {forecast.chart_image_url && (
-                            <Image source={{ uri: forecast.chart_image_url }} style={styles.chartImage} resizeMode="contain" />
+                                <View style={styles.detailsGrid}>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Type</Text>
+                                        <Text style={[styles.detailValue, { color: forecast.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]}>{forecast.trade_type || '—'}</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Entry</Text>
+                                        <Text style={styles.detailValue}>${forecast.entry_price || '—'}</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Exit</Text>
+                                        <Text style={styles.detailValue}>${forecast.exit_price || '—'}</Text>
+                                    </View>
+                                </View>
+                            </>
+                        )}
+
+                        {(forecast.chart_image_url || forecast.tradingview_link) && (
+                            <View style={styles.chartWrapper}>
+                                <Image
+                                    source={{
+                                        uri: getTradingViewImageUrl(forecast.chart_image_url || forecast.tradingview_link) || ''
+                                    }}
+                                    style={styles.chartImage}
+                                    resizeMode="contain"
+                                />
+                            </View>
                         )}
 
                         <View style={styles.analysisBox}>
-                            <Text style={styles.analysisTitle}>Analysis</Text>
+                            <Text style={styles.analysisTitle}>Trade Notes</Text>
                             {isEditing ? (
                                 <View style={styles.editBox}>
                                     <TextInput
@@ -244,13 +322,11 @@ export default function TradeDetailsModal({
                                         value={editContent}
                                         onChangeText={setEditContent}
                                         multiline
+                                        autoFocus
                                     />
-                                    <TouchableOpacity style={styles.saveBtn} onPress={handleUpdateForecast}>
-                                        <Text style={styles.saveBtnText}>Save Changes</Text>
-                                    </TouchableOpacity>
                                 </View>
                             ) : (
-                                <Text style={styles.analysisText}>{forecast.content}</Text>
+                                <Text style={styles.analysisText}>{forecast.notes || 'No notes for this trade.'}</Text>
                             )}
                         </View>
 
@@ -258,19 +334,15 @@ export default function TradeDetailsModal({
 
                         <View style={styles.commentsSection}>
                             <Text style={styles.sectionTitle}>Comments ({comments.length})</Text>
-                            {loadingComments ? (
-                                <ActivityIndicator color="#F5C400" style={{ marginVertical: 20 }} />
-                            ) : (
-                                comments.map((c) => (
-                                    <View key={c.id} style={styles.commentRow}>
-                                        <Avatar url={c.users.avatar_url} username={c.users.username} size={32} />
-                                        <View style={styles.commentContent}>
-                                            <Text style={styles.commentUser}>@{c.users.username}</Text>
-                                            <Text style={styles.commentText}>{c.content}</Text>
-                                        </View>
+                            {comments.map((comment) => (
+                                <View key={comment.id} style={styles.commentRow}>
+                                    <Avatar url={comment.users?.avatar_url} username={comment.users?.username ?? '?'} size={32} />
+                                    <View style={styles.commentContent}>
+                                        <Text style={styles.commentUser}>{comment.users?.username ?? 'User'}</Text>
+                                        <Text style={styles.commentText}>{comment.content}</Text>
                                     </View>
-                                ))
-                            )}
+                                </View>
+                            ))}
                         </View>
                     </ScrollView>
 
@@ -285,9 +357,9 @@ export default function TradeDetailsModal({
                         <TouchableOpacity
                             style={[styles.sendBtn, !newComment.trim() && { opacity: 0.5 }]}
                             onPress={handleAddComment}
-                            disabled={submittingComment || !newComment.trim()}
+                            disabled={!newComment.trim() || submittingComment}
                         >
-                            {submittingComment ? <ActivityIndicator size="small" color="#1a1a1a" /> : <FontAwesome name="send" size={18} color="#1a1a1a" />}
+                            <FontAwesome name="send" size={18} color="#1a1a1a" />
                         </TouchableOpacity>
                     </View>
                 </Animated.View>
@@ -314,14 +386,40 @@ const styles = StyleSheet.create({
     statLabel: { fontSize: 11, color: '#aaa', fontWeight: '600' },
     statValue: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
     statDivider: { width: 1, height: 36, backgroundColor: '#eee' },
-    chartImage: { width: '100%', height: 240, borderRadius: 16, backgroundColor: '#f5f5f5' },
+    editGrid: { backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 12 },
+    editField: { gap: 6 },
+    editLabel: { fontSize: 12, fontWeight: '700', color: '#666', textTransform: 'uppercase' },
+    editTextInput: { backgroundColor: '#f5f5f5', borderRadius: 10, padding: 12, fontSize: 15, borderWidth: 1, borderColor: '#eee' },
+    typeButtonsRow: { flexDirection: 'row', gap: 10 },
+    typeButton: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#f5f5f5', borderWidth: 1.5, borderColor: '#eee', alignItems: 'center' },
+    typeButtonActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
+    typeButtonText: { fontSize: 14, fontWeight: '700', color: '#666' },
+    typeButtonTextActive: { color: '#F5C400' },
+    detailsGrid: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 16, marginVertical: 10, gap: 20 },
+    detailItem: { flex: 1 },
+    detailLabel: { fontSize: 11, fontWeight: '800', color: '#A0AEC0', textTransform: 'uppercase' },
+    detailValue: { fontSize: 15, fontWeight: '700', color: '#2D3748', marginTop: 4 },
+    chartWrapper: {
+        width: '100%',
+        height: 250,
+        borderRadius: 16,
+        backgroundColor: '#f8fafc',
+        marginVertical: 10,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    chartImage: {
+        width: '100%',
+        height: '100%',
+    },
     analysisBox: { backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 8 },
     analysisTitle: { fontSize: 13, fontWeight: '700', color: '#1a1a1a', textTransform: 'uppercase' },
     analysisText: { fontSize: 15, color: '#444', lineHeight: 23 },
     editBox: { gap: 12 },
     editInput: { backgroundColor: '#f5f5f5', borderRadius: 12, padding: 12, fontSize: 15, minHeight: 100 },
-    saveBtn: { backgroundColor: '#F5C400', borderRadius: 12, padding: 12, alignItems: 'center' },
-    saveBtnText: { fontWeight: '800', color: '#1a1a1a' },
+    saveBtn: { backgroundColor: '#F5C400', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 8 },
+    saveBtnText: { fontWeight: '800', color: '#1a1a1a', fontSize: 15 },
     divider: { height: 1, backgroundColor: '#eee', marginVertical: 8 },
     commentsSection: { gap: 16 },
     sectionTitle: { fontSize: 16, fontWeight: '800', color: '#1a1a1a' },

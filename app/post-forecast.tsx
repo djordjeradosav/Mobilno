@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { uploadForecastImage } from "@/lib/uploadImage";
 import { useAuth } from '@/lib/auth';
+import { useCallback } from 'react';
 import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -82,12 +83,19 @@ export default function PostForecast() {
             }
         }
 
-        const { error } = await supabase.from('forecasts').insert({
-            user_id: user.id,
-            currency_pair: pair,
-            profit: p,
-            content: content.trim(),
-            chart_image_url: chartUrl,
+        // Use RPC to insert into trades table
+        const { error } = await supabase.rpc('add_new_trade', {
+            p_symbol: pair,
+            p_trade_type: p >= 0 ? 'Buy' : 'Sell',
+            p_entry_price: null,
+            p_exit_price: null,
+            p_money_value: p,
+            p_trade_date: new Date().toISOString().split('T')[0],
+            p_tradingview_link: chartUrl,
+            p_notes: content.trim(),
+            p_chart_image_url: chartUrl,
+            p_currency_pair: pair,
+            p_content: content.trim(),
         });
         setSubmitting(false);
 

@@ -38,21 +38,35 @@ export default function Register() {
 
         setLoading(true);
         try {
-            console.log('Attempting Supabase Auth sign up for:', email.trim().toLowerCase());
-
-            // We pass the username in options.data so the Database Trigger can pick it up
             const { data, error: authError } = await supabase.auth.signUp({
                 email: email.trim().toLowerCase(),
                 password,
                 options: {
-                    data: {
-                        username: username.trim().toLowerCase(),
-                    }
-                }
+                    data: { username: username.trim().toLowerCase() },
+                },
             });
 
             if (authError) {
-                console.error('Supabase Auth Error:', authError);
+                const msg = authError.message?.toLowerCase() ?? '';
+
+                // Supabase returns this message when the email is taken
+                if (
+                    msg.includes('already registered') ||
+                    msg.includes('already been registered') ||
+                    msg.includes('user already exists') ||
+                    authError.code === 'user_already_exists'
+                ) {
+                    Alert.alert(
+                        'Account already exists',
+                        'An account with this email already exists. Would you like to log in instead?',
+                        [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Log in', onPress: () => router.replace('/(auth)/login') },
+                        ]
+                    );
+                    return;
+                }
+
                 throw new Error(authError.message);
             }
 
@@ -60,14 +74,11 @@ export default function Register() {
                 throw new Error('No user data returned from Supabase Auth.');
             }
 
-            console.log('User created successfully:', data.user.id);
-
             Alert.alert(
                 'Success',
                 'Account created! Please check your email for a verification link.',
                 [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
             );
-
         } catch (err: any) {
             console.error('Registration process failed:', err);
             Alert.alert('Registration Failed', err.message ?? 'An unexpected error occurred.');
@@ -184,7 +195,8 @@ export default function Register() {
 
                     <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
                         <Text style={styles.loginLink}>
-                            Already have an account? <Text style={{ fontWeight: '700', color: '#1a1a1a' }}>Login</Text>
+                            Already have an account?{' '}
+                            <Text style={{ fontWeight: '700', color: '#1a1a1a' }}>Login</Text>
                         </Text>
                     </TouchableOpacity>
                 </View>

@@ -14,19 +14,15 @@ import {
     TouchableOpacity,
     View,
     Image,
-    Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { getTradingViewImageUrl } from '@/components/ForecastCard';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 export default function CreateForecast() {
     const { user } = useAuth();
     const router = useRouter();
 
-    // Form States
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [symbol, setSymbol] = useState('');
     const [tradeType, setTradeType] = useState<'Buy' | 'Sell'>('Buy');
@@ -53,7 +49,7 @@ export default function CreateForecast() {
 
         setLoading(true);
 
-        const { error } = await supabase.rpc('add_new_trade', {
+        const { data, error } = await supabase.rpc('add_new_trade', {
             p_symbol: symbol.trim().toUpperCase(),
             p_trade_type: tradeType,
             p_entry_price: entryPrice ? Number(entryPrice) : 0,
@@ -61,26 +57,38 @@ export default function CreateForecast() {
             p_money_value: Number(moneyValue),
             p_trade_date: date || new Date().toISOString().split('T')[0],
             p_tradingview_link: tvLink.trim() || null,
-            p_notes: notes.trim(),
-            p_chart_image_url: tvLink.trim() || null
+            p_notes: notes.trim() || null,
+            p_chart_image_url: tvLink.trim() || null,
         });
 
         setLoading(false);
+
         if (error) {
-            console.error('[handleCreate] RPC Error:', JSON.stringify(error, null, 2));
-            Alert.alert('Error', `Could not create trade: ${error.message}`);
-        } else {
-            Alert.alert('Success', 'Trade added to your journal!', [
-                { text: 'OK', onPress: () => router.push('/(tabs)/popular') }
-            ]);
-            // Reset form
-            setSymbol('');
-            setEntryPrice('');
-            setExitPrice('');
-            setMoneyValue('');
-            setTvLink('');
-            setNotes('');
+            // PostgrestError properties are non-enumerable — read them directly
+            const msg = error.message ?? error.details ?? error.hint ?? 'Unknown error';
+            const code = error.code ?? '';
+            console.error(`[handleCreate] RPC Error — code: ${code} | message: ${msg} | hint: ${error.hint} | details: ${error.details}`);
+            Alert.alert('Error', `Could not create trade:\n${msg}`);
+            return;
         }
+
+        if (!data) {
+            // Function ran without a Postgres error but returned null — catch-all
+            console.warn('[handleCreate] RPC returned null — trade may not have been inserted.');
+            Alert.alert('Error', 'Trade could not be saved. Please try again.');
+            return;
+        }
+
+        Alert.alert('Success', 'Trade added to your journal!', [
+            { text: 'OK', onPress: () => router.push('/(tabs)/popular') }
+        ]);
+
+        setSymbol('');
+        setEntryPrice('');
+        setExitPrice('');
+        setMoneyValue('');
+        setTvLink('');
+        setNotes('');
     };
 
     return (
@@ -234,12 +242,12 @@ export default function CreateForecast() {
                             onPress={handleCreate}
                             disabled={loading}
                         >
-                            {loading ? <ActivityIndicator color="#1a1a1a" /> : <Text style={styles.submitBtnText}>Add to Journal</Text>}
+                            {loading
+                                ? <ActivityIndicator color="#1a1a1a" />
+                                : <Text style={styles.submitBtnText}>Add to Journal</Text>
+                            }
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.cancelBtn}
-                            onPress={() => router.back()}
-                        >
+                        <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
                             <Text style={styles.cancelText}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
@@ -262,16 +270,7 @@ const styles = StyleSheet.create({
     field: { flex: 1, gap: 8 },
     section: { gap: 8 },
     label: { fontSize: 13, fontWeight: '800', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: 0.5 },
-    inputWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f9fafb',
-        borderRadius: 12,
-        paddingHorizontal: 15,
-        height: 52,
-        borderWidth: 1,
-        borderColor: '#f0f0f0'
-    },
+    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9fafb', borderRadius: 12, paddingHorizontal: 15, height: 52, borderWidth: 1, borderColor: '#f0f0f0' },
     input: { flex: 1, fontSize: 15, color: '#1a1a1a', fontWeight: '600' },
     typeSelector: { flexDirection: 'row', backgroundColor: '#f9fafb', borderRadius: 12, height: 52, borderWidth: 1, borderColor: '#f0f0f0', padding: 4 },
     typeBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
@@ -280,17 +279,7 @@ const styles = StyleSheet.create({
     buyTextActive: { color: '#059669', fontWeight: '800' },
     sellTextActive: { color: '#dc2626', fontWeight: '800' },
     typeText: { fontSize: 14, fontWeight: '700', color: '#999' },
-    textArea: {
-        backgroundColor: '#f9fafb',
-        borderRadius: 12,
-        padding: 15,
-        fontSize: 15,
-        color: '#1a1a1a',
-        fontWeight: '600',
-        minHeight: 120,
-        borderWidth: 1,
-        borderColor: '#f0f0f0'
-    },
+    textArea: { backgroundColor: '#f9fafb', borderRadius: 12, padding: 15, fontSize: 15, color: '#1a1a1a', fontWeight: '600', minHeight: 120, borderWidth: 1, borderColor: '#f0f0f0' },
     sectionTitle: { fontSize: 16, fontWeight: '900', color: '#1a1a1a', marginBottom: 10 },
     previewContainer: { marginTop: 10 },
     previewCard: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#f0f0f0' },

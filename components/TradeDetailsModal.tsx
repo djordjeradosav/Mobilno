@@ -59,8 +59,8 @@ export default function TradeDetailsModal({
         if (!forecast?.id) return;
         const { data, error } = await supabase
             .from('comments')
-            .select('*, users(username, avatar_url)')
-            .eq('trade_id', forecast.id)
+            .select('*, users(username, avatar_url, is_verified)')
+            .eq('forecast_id', forecast.id)
             .order('created_at', { ascending: true });
 
         if (!error && data) setComments(data);
@@ -94,7 +94,7 @@ export default function TradeDetailsModal({
         const { error } = await supabase
             .from('comments')
             .insert({
-                trade_id: forecast.id,
+                forecast_id: forecast.id,
                 user_id: currentUserId,
                 content: newComment.trim()
             });

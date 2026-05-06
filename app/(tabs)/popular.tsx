@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Trade, getTradingViewImageUrl } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
 import Avatar from '@/components/Avatar';
+import ProfilePreviewSheet from '@/components/ProfilePreviewSheet';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -162,6 +163,10 @@ export default function Feed() {
     const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
 
+    // Profile preview sheet
+    const [previewUserId, setPreviewUserId] = useState<string | null>(null);
+    const [sheetVisible, setSheetVisible] = useState(false);
+
     const fetchFollowing = useCallback(async () => {
         if (!user?.id) return;
         const { data } = await supabase
@@ -262,6 +267,11 @@ export default function Feed() {
         setModalVisible(true);
     };
 
+    const openPreview = (uid: string) => {
+        setPreviewUserId(uid);
+        setSheetVisible(true);
+    };
+
     if (loading) {
         return (
             <View style={s.loader}>
@@ -332,7 +342,7 @@ export default function Feed() {
                         currentUserId={user?.id}
                         onLike={handleLike}
                         onPress={handleOpenModal}
-                        onAvatarPress={userId => router.push(`/user-profile?userId=${userId}`)}
+                        onAvatarPress={openPreview}
                     />
                 )}
             />
@@ -345,6 +355,13 @@ export default function Feed() {
                 isLiked={selectedTrade ? likedIds.has(selectedTrade.id) : false}
                 currentUserId={user?.id}
                 onUpdate={fetchTrades}
+            />
+
+            <ProfilePreviewSheet
+                userId={previewUserId}
+                visible={sheetVisible}
+                onClose={() => setSheetVisible(false)}
+                currentUserId={user?.id}
             />
         </SafeAreaView>
     );

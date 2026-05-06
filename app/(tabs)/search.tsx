@@ -2,17 +2,14 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Avatar from '../../components/Avatar';
 import {
     ActivityIndicator,
-    Animated,
     Dimensions,
     FlatList,
     Image,
     Linking,
-    Modal,
-    PanResponder,
     ScrollView,
     StyleSheet,
     Text,
@@ -22,11 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getForexNews, NewsItem as AVNewsItem } from '@/lib/news';
-import { Trade } from '@/components/ForecastCard';
-import UserPreviewCard from '../../components/userPreviewCard';
-
-const { height: SH } = Dimensions.get('window');
-const SHEET_H = SH * 0.82;
+import ProfilePreviewSheet from '@/components/ProfilePreviewSheet';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type UserProfile = {
@@ -38,226 +31,6 @@ type UserProfile = {
     follower_count?: number;
     following_count?: number;
 };
-
-type UserDetail = UserProfile & {
-    member_since?: string;
-    followerCount: number;
-    followingCount: number;
-    tradeCount: number;
-    recentTrades: Trade[];
-    totalPL: number;
-};
-
-// ─── User Profile Preview Sheet ──────────────────────────────────────────────
-function ProfilePreviewSheet({
-    userId,
-    visible,
-    onClose,
-    currentUserId,
-}: {
-    userId: string | null;
-    visible: boolean;
-    onClose: () => void;
-    currentUserId?: string;
-}) {
-    const router = useRouter();
-    const slideAnim = useRef(new Animated.Value(SHEET_H)).current;
-    const backdropAnim = useRef(new Animated.Value(0)).current;
-    const [detail, setDetail] = useState<UserDetail | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [isFollowing, setIsFollowing] = useState(false);
-    const [followLoading, setFollowLoading] = useState(false);
-
-    const panResponder = useRef(
-        PanResponder.create({
-            onMoveShouldSetPanResponder: (_, { dy }) => dy > 10,
-            onPanResponderMove: (_, { dy }) => { if (dy > 0) slideAnim.setValue(dy); },
-            onPanResponderRelease: (_, { dy, vy }) => {
-                if (dy > 120 || vy > 1.2) onClose();
-                else Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }).start();
-            },
-        })
-    ).current;
-
-    useEffect(() => {
-        if (visible) {
-            Animated.parallel([
-                Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-                Animated.timing(backdropAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
-            ]).start();
-            if (userId) loadProfile(userId);
-        } else {
-            Animated.parallel([
-                Animated.timing(slideAnim, { toValue: SHEET_H, duration: 260, useNativeDriver: true }),
-                Animated.timing(backdropAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
-            ]).start();
-        }
-    }, [visible, userId]);
-
-    const loadProfile = async (uid: string) => {
-        setLoading(true);
-        setDetail(null);
-
-        const [userRes, tradesRes, followerRes, followingRes, followStatusRes] = await Promise.all([
-            supabase.from('users').select('*').eq('id', uid).maybeSingle(),
-            supabase.from('trades').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(5),
-            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('followed_id', uid),
-            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', uid),
-            currentUserId
-                ? supabase.from('follows').select('*').eq('follower_id', currentUserId).eq('followed_id', uid).maybeSingle()
-                : Promise.resolve({ data: null }),
-        ]);
-
-        const trades = (tradesRes.data || []) as Trade[];
-        const totalPL = trades.reduce((sum, t) => sum + (t.money_value || 0), 0);
-
-        setIsFollowing(!!(followStatusRes as any).data);
-        setDetail({
-            ...(userRes.data as UserProfile),
-            member_since: userRes.data?.member_since,
-            followerCount: (followerRes as any).count ?? 0,
-            followingCount: (followingRes as any).count ?? 0,
-            tradeCount: (tradesRes.data || []).length,
-            recentTrades: trades,
-            totalPL,
-        });
-        setLoading(false);
-    };
-
-    const handleFollowToggle = async () => {
-        if (!currentUserId || !userId) return;
-        setFollowLoading(true);
-        if (isFollowing) {
-            await supabase.from('follows').delete()
-                .eq('follower_id', currentUserId).eq('followed_id', userId);
-            setIsFollowing(false);
-            setDetail(prev => prev ? { ...prev, followerCount: prev.followerCount - 1 } : prev);
-        } else {
-            await supabase.from('follows').insert({ follower_id: currentUserId, followed_id: userId });
-            setIsFollowing(true);
-            setDetail(prev => prev ? { ...prev, followerCount: prev.followerCount + 1 } : prev);
-        }
-        setFollowLoading(false);
-    };
-
-    return (
-        <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-            <Animated.View style={[ps.backdrop, { opacity: backdropAnim }]}>
-                <TouchableOpacity style={{ flex: 1 }} onPress={onClose} />
-            </Animated.View>
-
-            <Animated.View style={[ps.sheet, { transform: [{ translateY: slideAnim }] }]}>
-                <View {...panResponder.panHandlers} style={ps.handleArea}>
-                    <View style={ps.handle} />
-                </View>
-
-                {loading || !detail ? (
-                    <View style={ps.loader}>
-                        <ActivityIndicator size="large" color="#F5C400" />
-                    </View>
-                ) : (
-                    <ScrollView contentContainerStyle={ps.content} showsVerticalScrollIndicator={false}>
-                        {/* Profile header */}
-                        <View style={ps.profileHeader}>
-                            <Avatar url={detail.avatar_url} username={detail.username} size={72} />
-                            <View style={ps.profileInfo}>
-                                <View style={ps.nameRow}>
-                                    <Text style={ps.username}>@{detail.username}</Text>
-                                    {detail.is_verified && (
-                                        <MaterialIcons name="verified" size={16} color="#F5C400" />
-                                    )}
-                                    <View style={[ps.tierBadge, detail.subscription_tier === 'pro' && ps.tierPro]}>
-                                        <Text style={[ps.tierText, detail.subscription_tier === 'pro' && ps.tierProText]}>
-                                            {(detail.subscription_tier || 'FREE').toUpperCase()}
-                                        </Text>
-                                    </View>
-                                </View>
-                                {detail.member_since && (
-                                    <Text style={ps.memberSince}>
-                                        Joined {new Date(detail.member_since).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                                    </Text>
-                                )}
-                            </View>
-                        </View>
-
-                        {/* Stats row */}
-                        <View style={ps.statsRow}>
-                            <View style={ps.stat}>
-                                <Text style={ps.statNum}>{detail.followerCount}</Text>
-                                <Text style={ps.statLabel}>Followers</Text>
-                            </View>
-                            <View style={ps.statDivider} />
-                            <View style={ps.stat}>
-                                <Text style={ps.statNum}>{detail.followingCount}</Text>
-                                <Text style={ps.statLabel}>Following</Text>
-                            </View>
-                            <View style={ps.statDivider} />
-                            <View style={ps.stat}>
-                                <Text style={ps.statNum}>{detail.tradeCount}</Text>
-                                <Text style={ps.statLabel}>Trades</Text>
-                            </View>
-                            <View style={ps.statDivider} />
-                            <View style={ps.stat}>
-                                <Text style={[ps.statNum, { color: detail.totalPL >= 0 ? '#059669' : '#dc2626' }]}>
-                                    {detail.totalPL >= 0 ? '+' : '-'}${Math.abs(detail.totalPL).toFixed(0)}
-                                </Text>
-                                <Text style={ps.statLabel}>Total P&L</Text>
-                            </View>
-                        </View>
-
-                        {/* Action buttons */}
-                        <View style={ps.actionRow}>
-                            {currentUserId !== userId && (
-                                <TouchableOpacity
-                                    style={[ps.followBtn, isFollowing && ps.followBtnActive]}
-                                    onPress={handleFollowToggle}
-                                    disabled={followLoading}
-                                >
-                                    {followLoading
-                                        ? <ActivityIndicator size="small" color={isFollowing ? '#888' : '#1a1a1a'} />
-                                        : <Text style={[ps.followBtnText, isFollowing && ps.followBtnTextActive]}>
-                                            {isFollowing ? '✓ Following' : 'Follow'}
-                                        </Text>
-                                    }
-                                </TouchableOpacity>
-                            )}
-                            <TouchableOpacity
-                                style={ps.viewProfileBtn}
-                                onPress={() => {
-                                    onClose();
-                                    setTimeout(() => router.push(`/user-profile?userId=${userId}`), 300);
-                                }}
-                            >
-                                <Text style={ps.viewProfileText}>Full profile →</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Recent trades */}
-                        {detail.recentTrades.length > 0 && (
-                            <View style={ps.tradesSection}>
-                                <Text style={ps.sectionTitle}>Recent trades</Text>
-                                {detail.recentTrades.map(trade => (
-                                    <View key={trade.id} style={ps.tradeRow}>
-                                        <View style={[ps.tradeTypeDot, { backgroundColor: trade.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]} />
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={ps.tradeSymbol}>{trade.symbol}</Text>
-                                            <Text style={ps.tradeDate}>
-                                                {new Date(trade.trade_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                            </Text>
-                                        </View>
-                                        <Text style={[ps.tradePL, { color: (trade.money_value || 0) >= 0 ? '#059669' : '#dc2626' }]}>
-                                            {(trade.money_value || 0) >= 0 ? '+' : '-'}${Math.abs(trade.money_value || 0).toFixed(2)}
-                                        </Text>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-                    </ScrollView>
-                )}
-            </Animated.View>
-        </Modal>
-    );
-}
 
 // ─── Time ago ────────────────────────────────────────────────────────────────
 function timeAgo(ts: number) {
@@ -294,21 +67,19 @@ export default function Search() {
         try { setNews(await getForexNews()); } catch { }
         finally { setLoadingNews(false); }
     }, []);
+
     const fetchAllUsers = useCallback(async () => {
         setLoading(true);
         const { data } = await supabase
             .from('users')
             .select('id, username, avatar_url, is_verified, subscription_tier')
-            .neq('id', user?.id ?? '')
             .order('username', { ascending: true })
             .limit(50);
         setLoading(false);
         if (data) setResults(data as UserProfile[]);
-    }, [user?.id]);
-
+    }, []);
 
     useEffect(() => { fetchFollowing(); fetchNews(); fetchAllUsers(); }, [fetchFollowing, fetchNews, fetchAllUsers]);
-
 
     const handleSearch = async (query: string) => {
         setSearchQuery(query);
@@ -318,7 +89,6 @@ export default function Search() {
             .from('users')
             .select('id, username, avatar_url, is_verified, subscription_tier')
             .ilike('username', `%${query.trim()}%`)
-            .neq('id', user?.id ?? '')
             .limit(12);
         setLoading(false);
         if (data) setResults(data as UserProfile[]);
@@ -476,79 +246,6 @@ export default function Search() {
     );
 }
 
-// ─── Profile Sheet Styles ────────────────────────────────────────────────────
-const ps = StyleSheet.create({
-    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
-    sheet: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: SHEET_H,
-        backgroundColor: '#FAFAF8',
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        overflow: 'hidden',
-    },
-    handleArea: { paddingVertical: 14, alignItems: 'center' },
-    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#ddd' },
-    loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    content: { padding: 20, gap: 20, paddingBottom: 60 },
-
-    profileHeader: { flexDirection: 'row', gap: 16, alignItems: 'center' },
-    profileInfo: { flex: 1, gap: 6 },
-    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-    username: { fontSize: 20, fontWeight: '900', color: '#1a1a1a' },
-    tierBadge: { backgroundColor: '#f0f0ee', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
-    tierPro: { backgroundColor: '#F5C400' },
-    tierText: { fontSize: 9, fontWeight: '800', color: '#888' },
-    tierProText: { color: '#1a1a1a' },
-    memberSince: { fontSize: 12, color: '#aaa', fontWeight: '500' },
-
-    statsRow: {
-        flexDirection: 'row',
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: 20,
-        alignItems: 'center',
-    },
-    stat: { flex: 1, alignItems: 'center', gap: 4 },
-    statNum: { fontSize: 17, fontWeight: '900', color: '#1a1a1a' },
-    statLabel: { fontSize: 11, color: '#aaa', fontWeight: '600' },
-    statDivider: { width: 1, height: 28, backgroundColor: '#f0f0f0' },
-
-    actionRow: { flexDirection: 'row', gap: 10 },
-    followBtn: {
-        flex: 1,
-        height: 46,
-        borderRadius: 14,
-        backgroundColor: '#F5C400',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    followBtnActive: { backgroundColor: '#f0f0ee' },
-    followBtnText: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
-    followBtnTextActive: { color: '#888' },
-    viewProfileBtn: {
-        height: 46,
-        paddingHorizontal: 18,
-        borderRadius: 14,
-        backgroundColor: '#1a1a1a',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    viewProfileText: { fontSize: 13, fontWeight: '700', color: '#F5C400' },
-
-    tradesSection: { backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 12 },
-    sectionTitle: { fontSize: 15, fontWeight: '800', color: '#1a1a1a' },
-    tradeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    tradeTypeDot: { width: 8, height: 8, borderRadius: 4 },
-    tradeSymbol: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
-    tradeDate: { fontSize: 11, color: '#aaa', fontWeight: '500' },
-    tradePL: { fontSize: 14, fontWeight: '900' },
-});
-
-// ─── Main Styles ─────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#F5F5F3' },
     header: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10 },

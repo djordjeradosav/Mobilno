@@ -27,8 +27,6 @@ type UserData = {
     member_since: string;
     is_verified: boolean;
     subscription_tier: string;
-    followers_count: number;
-    following_count: number;
 };
 
 function Avatar({ url, username, size = 80 }: { url?: string | null; username: string; size?: number }) {
@@ -61,6 +59,8 @@ export default function UserProfile() {
     const [selectedForecast, setSelectedForecast] = useState<Forecast | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+    const [followersCount, setFollowersCount] = useState(0);
+    const [followingCount, setFollowingCount] = useState(0);
 
     const fetchUserData = useCallback(async () => {
         if (!userId || typeof userId !== 'string') return;
@@ -100,6 +100,16 @@ export default function UserProfile() {
         setIsFollowing(!!data);
     }, [currentUser?.id, userId]);
 
+    const fetchFollowCounts = useCallback(async () => {
+        if (!userId || typeof userId !== 'string') return;
+        const [followerRes, followingRes] = await Promise.all([
+            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('followed_id', userId),
+            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+        ]);
+        setFollowersCount((followerRes as any).count ?? 0);
+        setFollowingCount((followingRes as any).count ?? 0);
+    }, [userId]);
+
     const fetchLikes = useCallback(async () => {
         if (!currentUser?.id) return;
         const { data } = await supabase
@@ -111,17 +121,17 @@ export default function UserProfile() {
 
     const init = useCallback(async () => {
         setLoading(true);
-        await Promise.all([fetchUserData(), fetchUserPosts(), fetchFollowStatus(), fetchLikes()]);
+        await Promise.all([fetchUserData(), fetchUserPosts(), fetchFollowStatus(), fetchFollowCounts(), fetchLikes()]);
         setLoading(false);
-    }, [fetchUserData, fetchUserPosts, fetchFollowStatus, fetchLikes]);
+    }, [fetchUserData, fetchUserPosts, fetchFollowStatus, fetchFollowCounts, fetchLikes]);
 
     useEffect(() => { init(); }, [init]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([fetchUserData(), fetchUserPosts(), fetchFollowStatus(), fetchLikes()]);
+        await Promise.all([fetchUserData(), fetchUserPosts(), fetchFollowStatus(), fetchFollowCounts(), fetchLikes()]);
         setRefreshing(false);
-    }, [fetchUserData, fetchUserPosts, fetchFollowStatus, fetchLikes]);
+    }, [fetchUserData, fetchUserPosts, fetchFollowStatus, fetchFollowCounts, fetchLikes]);
 
     const handleToggleFollow = async () => {
         if (!currentUser?.id || !userId || typeof userId !== 'string') return;
@@ -236,12 +246,12 @@ export default function UserProfile() {
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.stat}>
-                            <Text style={styles.statNum}>{userData.followers_count}</Text>
+                            <Text style={styles.statNum}>{followersCount}</Text>
                             <Text style={styles.statLabel}>Followers</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.stat}>
-                            <Text style={styles.statNum}>{userData.following_count}</Text>
+                            <Text style={styles.statNum}>{followingCount}</Text>
                             <Text style={styles.statLabel}>Following</Text>
                         </View>
                     </View>

@@ -32,6 +32,7 @@ export default function PostForecast() {
     const [content, setContent] = useState('');
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
+    const [chartUrl, setChartUrl] = useState<string | null>(null);
 
     const handlePickImage = async () => {
         // On native we need permission; on web this is a no-op
@@ -83,27 +84,23 @@ export default function PostForecast() {
             }
         }
 
-        // Use RPC to insert into trades table
-        const { error } = await supabase.rpc('add_new_trade', {
-            p_symbol: pair,
-            p_trade_type: p >= 0 ? 'Buy' : 'Sell',
-            p_entry_price: null,
-            p_exit_price: null,
-            p_money_value: p,
-            p_trade_date: new Date().toISOString().split('T')[0],
-            p_tradingview_link: chartUrl,
-            p_notes: content.trim(),
-            p_chart_image_url: chartUrl,
-            p_currency_pair: pair,
-            p_content: content.trim(),
-        });
+        // Insert directly into forecasts table
+        const { error } = await supabase
+            .from('forecasts')
+            .insert({
+                user_id: user.id,
+                currency_pair: pair,
+                profit: p,
+                content: content.trim(),
+                chart_image_url: chartUrl,
+            });
         setSubmitting(false);
 
         if (error) {
             Alert.alert('Could not post', error.message);
             return;
         }
-        router.replace('/(tabs)/forecast');
+        router.replace('/(tabs)/popular');
     };
 
     return (

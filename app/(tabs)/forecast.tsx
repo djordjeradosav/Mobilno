@@ -23,11 +23,7 @@ export default function CreateForecast() {
     const { user } = useAuth();
     const router = useRouter();
 
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [symbol, setSymbol] = useState('');
-    const [tradeType, setTradeType] = useState<'Buy' | 'Sell'>('Buy');
-    const [entryPrice, setEntryPrice] = useState('');
-    const [exitPrice, setExitPrice] = useState('');
     const [moneyValue, setMoneyValue] = useState('');
     const [tvLink, setTvLink] = useState('');
     const [notes, setNotes] = useState('');
@@ -49,43 +45,31 @@ export default function CreateForecast() {
 
         setLoading(true);
 
-        const { data, error } = await supabase.rpc('add_new_trade', {
-            p_symbol: symbol.trim().toUpperCase(),
-            p_trade_type: tradeType,
-            p_entry_price: entryPrice ? Number(entryPrice) : 0,
-            p_exit_price: exitPrice ? Number(exitPrice) : 0,
-            p_money_value: Number(moneyValue),
-            p_trade_date: date || new Date().toISOString().split('T')[0],
-            p_tradingview_link: tvLink.trim() || null,
-            p_notes: notes.trim() || null,
-            p_chart_image_url: tvLink.trim() || null,
-        });
+        const { error } = await supabase
+            .from('forecasts')
+            .insert({
+                user_id: user.id,
+                currency_pair: symbol.trim().toUpperCase(),
+                profit: Number(moneyValue),
+                content: notes.trim() || '',
+                chart_image_url: tvLink.trim() || null,
+            });
 
         setLoading(false);
 
         if (error) {
-            // PostgrestError properties are non-enumerable — read them directly
             const msg = error.message ?? error.details ?? error.hint ?? 'Unknown error';
             const code = error.code ?? '';
-            console.error(`[handleCreate] RPC Error — code: ${code} | message: ${msg} | hint: ${error.hint} | details: ${error.details}`);
-            Alert.alert('Error', `Could not create trade:\n${msg}`);
+            console.error(`[handleCreate] Error — code: ${code} | message: ${msg}`);
+            Alert.alert('Error', `Could not create forecast:\n${msg}`);
             return;
         }
 
-        if (!data) {
-            // Function ran without a Postgres error but returned null — catch-all
-            console.warn('[handleCreate] RPC returned null — trade may not have been inserted.');
-            Alert.alert('Error', 'Trade could not be saved. Please try again.');
-            return;
-        }
-
-        Alert.alert('Success', 'Trade added to your journal!', [
+        Alert.alert('Success', 'Forecast added!', [
             { text: 'OK', onPress: () => router.push('/(tabs)/popular') }
         ]);
 
         setSymbol('');
-        setEntryPrice('');
-        setExitPrice('');
         setMoneyValue('');
         setTvLink('');
         setNotes('');

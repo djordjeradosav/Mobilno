@@ -61,7 +61,7 @@ export default function TradeDetailsModal({
             .from('comments')
             .select('*, users(username, avatar_url, is_verified)')
             .eq('forecast_id', forecast.id)
-            .order('created_at', { ascending: true });
+            .order('created_at', { ascending: false });
 
         if (!error && data) setComments(data);
     }, [forecast?.id]);
@@ -111,38 +111,35 @@ export default function TradeDetailsModal({
     const handleUpdateTrade = async () => {
         if (!forecast?.id) return;
         const updateData: any = {
-            notes: editContent.trim(),
-            symbol: editSymbol.trim().toUpperCase() || forecast.symbol,
-            money_value: editMoneyValue ? Number(editMoneyValue) : forecast.money_value,
-            trade_type: editTradeType,
+            content: editContent.trim(),
+            currency_pair: editSymbol.trim().toUpperCase() || forecast.currency_pair,
+            profit: editMoneyValue ? Number(editMoneyValue) : forecast.profit,
         };
-        if (editEntryPrice) updateData.entry_price = Number(editEntryPrice);
-        if (editExitPrice) updateData.exit_price = Number(editExitPrice);
 
         const { error } = await supabase
-            .from('trades')
+            .from('forecasts')
             .update(updateData)
             .eq('id', forecast.id);
 
         if (error) {
-            Alert.alert('Error', 'Could not update trade');
+            Alert.alert('Error', 'Could not update forecast');
         } else {
             setIsEditing(false);
             if (onUpdate) onUpdate();
-            Alert.alert('Success', 'Trade updated');
+            Alert.alert('Success', 'Forecast updated');
         }
     };
 
     const handleDeleteTrade = async () => {
         if (!forecast?.id) return;
-        Alert.alert('Delete Trade', 'Are you sure you want to delete this trade?', [
+        Alert.alert('Delete Forecast', 'Are you sure you want to delete this forecast?', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Delete',
                 style: 'destructive',
                 onPress: async () => {
-                    const { error } = await supabase.from('trades').delete().eq('id', forecast.id);
-                    if (error) Alert.alert('Error', 'Could not delete trade');
+                    const { error } = await supabase.from('forecasts').delete().eq('id', forecast.id);
+                    if (error) Alert.alert('Error', 'Could not delete forecast');
                     else {
                         onClose();
                         if (onUpdate) onUpdate();

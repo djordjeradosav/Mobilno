@@ -94,9 +94,9 @@ export default function ProfilePreviewSheet({
         setDetail(null);
 
         try {
-            const [userRes, tradesRes, followerRes, followingRes, followStatusRes] = await Promise.all([
+            const [userRes, forecastsRes, followerRes, followingRes, followStatusRes] = await Promise.all([
                 supabase.from('users').select('*').eq('id', uid).maybeSingle(),
-                supabase.from('trades').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(5),
+                supabase.from('forecasts').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(5),
                 supabase.from('follows').select('*', { count: 'exact', head: true }).eq('followed_id', uid),
                 supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', uid),
                 currentUserId
@@ -104,8 +104,8 @@ export default function ProfilePreviewSheet({
                     : Promise.resolve({ data: null }),
             ]);
 
-            const trades = (tradesRes.data || []) as Trade[];
-            const totalPL = trades.reduce((sum, t) => sum + (t.money_value || 0), 0);
+            const forecasts = (forecastsRes.data || []) as Trade[];
+            const totalPL = forecasts.reduce((sum, t) => sum + (t.profit || 0), 0);
 
             setIsFollowing(!!(followStatusRes as any).data);
             setDetail({
@@ -113,8 +113,8 @@ export default function ProfilePreviewSheet({
                 member_since: userRes.data?.member_since,
                 followerCount: (followerRes as any).count ?? 0,
                 followingCount: (followingRes as any).count ?? 0,
-                tradeCount: (tradesRes.data || []).length,
-                recentTrades: trades,
+                tradeCount: (forecastsRes.data || []).length,
+                recentTrades: forecasts,
                 totalPL,
             });
         } catch (err) {
@@ -145,18 +145,18 @@ export default function ProfilePreviewSheet({
         }
     };
 
-    const handleTradePress = (trade: Trade) => {
+    const handleForecastPress = (forecast: Trade) => {
         if (detail) {
-            // Inject user info into trade for the modal
-            const tradeWithUser = {
-                ...trade,
+            // Inject user info into forecast for the modal
+            const forecastWithUser = {
+                ...forecast,
                 users: {
                     username: detail.username,
                     avatar_url: detail.avatar_url,
                     is_verified: detail.is_verified
                 }
             };
-            setSelectedTrade(tradeWithUser as Trade);
+            setSelectedTrade(forecastWithUser as Trade);
             setTradeModalVisible(true);
         }
     };
@@ -253,22 +253,22 @@ export default function ProfilePreviewSheet({
 
                             {detail.recentTrades.length > 0 && (
                                 <View style={styles.tradesSection}>
-                                    <Text style={styles.sectionTitle}>Recent trades</Text>
-                                    {detail.recentTrades.map(trade => (
+                                    <Text style={styles.recentTradesTitle}>Recent Forecasts</Text>
+                                    {detail.recentTrades.map(forecast => (
                                         <TouchableOpacity
-                                            key={trade.id}
+                                            key={forecast.id}
                                             style={styles.tradeRow}
-                                            onPress={() => handleTradePress(trade)}
+                                            onPress={() => handleForecastPress(forecast)}
                                         >
-                                            <View style={[styles.tradeTypeDot, { backgroundColor: trade.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]} />
+                                            <View style={[styles.tradeTypeDot, { backgroundColor: (forecast.profit || 0) >= 0 ? '#059669' : '#dc2626' }]} />
                                             <View style={{ flex: 1 }}>
-                                                <Text style={styles.tradeSymbol}>{trade.symbol}</Text>
+                                                <Text style={styles.tradeSymbol}>{forecast.currency_pair}</Text>
                                                 <Text style={styles.tradeDate}>
-                                                    {new Date(trade.trade_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                    {new Date(forecast.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                 </Text>
                                             </View>
-                                            <Text style={[styles.tradePL, { color: (trade.money_value || 0) >= 0 ? '#059669' : '#dc2626' }]}>
-                                                {(trade.money_value || 0) >= 0 ? '+' : '-'}${Math.abs(trade.money_value || 0).toFixed(2)}
+                                            <Text style={[styles.tradePL, { color: (forecast.profit || 0) >= 0 ? '#059669' : '#dc2626' }]}>
+                                                {(forecast.profit || 0) >= 0 ? '+' : '-'}${Math.abs(forecast.profit || 0).toFixed(2)}
                                             </Text>
                                         </TouchableOpacity>
                                     ))}
@@ -277,7 +277,7 @@ export default function ProfilePreviewSheet({
                         </ScrollView>
                     )}
                 </Animated.View>
-            </Modal>
+            </Modal >
 
             <TradeDetailsModal
                 visible={tradeModalVisible}

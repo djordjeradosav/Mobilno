@@ -6,8 +6,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Avatar from '../../components/Avatar';
 import {
     ActivityIndicator,
-    Dimensions,
-    FlatList,
     Image,
     Linking,
     ScrollView,
@@ -21,18 +19,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getForexNews, NewsItem as AVNewsItem } from '@/lib/news';
 import ProfilePreviewSheet from '@/components/ProfilePreviewSheet';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
 type UserProfile = {
     id: string;
     username: string;
     avatar_url: string | null;
     is_verified: boolean;
     subscription_tier: string;
-    follower_count?: number;
-    following_count?: number;
 };
 
-// ─── Time ago ────────────────────────────────────────────────────────────────
 function timeAgo(ts: number) {
     const diff = Math.floor(Date.now() / 1000 - ts);
     if (diff < 60) return 'just now';
@@ -41,7 +35,6 @@ function timeAgo(ts: number) {
     return `${Math.floor(diff / 86400)}d ago`;
 }
 
-// ─── Main screen ─────────────────────────────────────────────────────────────
 export default function Search() {
     const router = useRouter();
     const { user } = useAuth();
@@ -51,8 +44,6 @@ export default function Search() {
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [loadingNews, setLoadingNews] = useState(true);
-
-    // Profile preview sheet
     const [previewUserId, setPreviewUserId] = useState<string | null>(null);
     const [sheetVisible, setSheetVisible] = useState(false);
 
@@ -79,7 +70,11 @@ export default function Search() {
         if (data) setResults(data as UserProfile[]);
     }, []);
 
-    useEffect(() => { fetchFollowing(); fetchNews(); fetchAllUsers(); }, [fetchFollowing, fetchNews, fetchAllUsers]);
+    useEffect(() => {
+        fetchFollowing();
+        fetchNews();
+        fetchAllUsers();
+    }, [fetchFollowing, fetchNews, fetchAllUsers]);
 
     const handleSearch = async (query: string) => {
         setSearchQuery(query);
@@ -116,33 +111,38 @@ export default function Search() {
 
     return (
         <SafeAreaView style={s.root} edges={['top']}>
+            {/* Header */}
             <View style={s.header}>
                 <Text style={s.headerTitle}>Explore</Text>
+                {loadingNews && <ActivityIndicator size="small" color="#F0B90B" />}
             </View>
+
+            <View style={s.dividerLine} />
 
             {/* Search bar */}
             <View style={s.searchBar}>
-                <FontAwesome name="search" size={15} color="#aaa" />
+                <FontAwesome name="search" size={14} color="#848E9C" />
                 <TextInput
                     style={s.searchInput}
                     placeholder="Search traders…"
-                    placeholderTextColor="#bbb"
+                    placeholderTextColor="#474D57"
                     value={searchQuery}
                     onChangeText={handleSearch}
                     autoCapitalize="none"
                     autoCorrect={false}
                 />
                 {loading
-                    ? <ActivityIndicator size="small" color="#F5C400" />
+                    ? <ActivityIndicator size="small" color="#F0B90B" />
                     : searchQuery.length > 0 && (
                         <TouchableOpacity onPress={() => { setSearchQuery(''); fetchAllUsers(); }}>
-                            <FontAwesome name="times-circle" size={16} color="#ccc" />
+                            <FontAwesome name="times-circle" size={14} color="#848E9C" />
                         </TouchableOpacity>
                     )}
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Results */}
+
+                {/* Traders */}
                 {results.length > 0 && (
                     <View style={s.section}>
                         <Text style={s.sectionTitle}>Traders</Text>
@@ -153,36 +153,30 @@ export default function Search() {
                                 onPress={() => openPreview(item.id)}
                                 activeOpacity={0.85}
                             >
-                                <Avatar url={item.avatar_url} username={item.username} size={46} />
+                                <Avatar url={item.avatar_url} username={item.username} size={42} />
                                 <View style={s.userInfo}>
                                     <View style={s.userNameRow}>
                                         <Text style={s.username}>@{item.username}</Text>
                                         {item.is_verified && (
-                                            <MaterialIcons name="verified" size={13} color="#F5C400" />
+                                            <MaterialIcons name="verified" size={12} color="#F0B90B" />
                                         )}
                                     </View>
                                     <Text style={s.userTier}>{item.subscription_tier} member</Text>
                                 </View>
-                                <View style={s.userRight}>
-                                    <TouchableOpacity
-                                        style={[s.followBtn, followingIds.has(item.id) && s.followingBtn]}
-                                        onPress={() => toggleFollow(item.id)}
-                                    >
-                                        <Text style={[s.followBtnText, followingIds.has(item.id) && s.followingBtnText]}>
-                                            {followingIds.has(item.id) ? 'Following' : 'Follow'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => openPreview(item.id)} style={s.previewHint}>
-                                        <Text style={s.previewHintText}>Preview</Text>
-                                        <FontAwesome name="chevron-right" size={10} color="#bbb" />
-                                    </TouchableOpacity>
-                                </View>
+                                <TouchableOpacity
+                                    style={[s.followBtn, followingIds.has(item.id) && s.followingBtn]}
+                                    onPress={() => toggleFollow(item.id)}
+                                >
+                                    <Text style={[s.followBtnText, followingIds.has(item.id) && s.followingBtnText]}>
+                                        {followingIds.has(item.id) ? 'Following' : 'Follow'}
+                                    </Text>
+                                </TouchableOpacity>
                             </TouchableOpacity>
                         ))}
                     </View>
                 )}
 
-                {/* No results state */}
+                {/* No results */}
                 {searchQuery.length > 0 && results.length === 0 && !loading && (
                     <View style={s.noResults}>
                         <Text style={s.noResultsIcon}>🔍</Text>
@@ -190,13 +184,9 @@ export default function Search() {
                     </View>
                 )}
 
-                {/* News section */}
+                {/* News */}
                 <View style={s.section}>
-                    <View style={s.sectionHeader}>
-                        <Text style={s.sectionTitle}>Market News</Text>
-                        {loadingNews && <ActivityIndicator size="small" color="#F5C400" />}
-                    </View>
-
+                    <Text style={s.sectionTitle}>Market News</Text>
                     {news.map(item => (
                         <TouchableOpacity
                             key={item.id}
@@ -207,8 +197,8 @@ export default function Search() {
                             <View style={s.newsContent}>
                                 <View style={s.newsTop}>
                                     <View style={[s.sentimentDot, {
-                                        backgroundColor: item.sentiment === 'bullish' ? '#059669'
-                                            : item.sentiment === 'bearish' ? '#dc2626' : '#999'
+                                        backgroundColor: item.sentiment === 'bullish' ? '#0ECB81'
+                                            : item.sentiment === 'bearish' ? '#F6465D' : '#848E9C'
                                     }]} />
                                     <Text style={s.newsSource}>{item.source}</Text>
                                     <Text style={s.newsDate}>{timeAgo(item.datetime)}</Text>
@@ -235,7 +225,6 @@ export default function Search() {
                 <View style={{ height: 100 }} />
             </ScrollView>
 
-            {/* Profile Preview Sheet */}
             <ProfilePreviewSheet
                 userId={previewUserId}
                 visible={sheetVisible}
@@ -247,87 +236,92 @@ export default function Search() {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#F5F5F3' },
-    header: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10 },
-    headerTitle: { fontSize: 28, fontWeight: '900', color: '#1a1a1a', letterSpacing: -0.5 },
+    root: { flex: 1, backgroundColor: '#0B0E11' },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+    },
+    headerTitle: { fontSize: 20, fontWeight: '900', color: '#EAECEF' },
+    dividerLine: { height: 1, backgroundColor: '#2B2F36' },
 
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
-        marginHorizontal: 20,
-        paddingHorizontal: 16,
-        height: 50,
-        borderRadius: 14,
+        backgroundColor: '#1E2026',
+        margin: 16,
+        paddingHorizontal: 14,
+        height: 48,
+        borderRadius: 8,
         gap: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
-        marginBottom: 4,
+        borderWidth: 1,
+        borderColor: '#2B2F36',
     },
-    searchInput: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
+    searchInput: { flex: 1, fontSize: 14, fontWeight: '500', color: '#EAECEF' },
 
-    section: { marginTop: 20, paddingHorizontal: 20 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-    sectionTitle: { fontSize: 17, fontWeight: '800', color: '#1a1a1a', marginBottom: 12 },
+    section: { paddingHorizontal: 16, marginBottom: 8 },
+    sectionTitle: {
+        fontSize: 11, fontWeight: '800', color: '#848E9C',
+        textTransform: 'uppercase', letterSpacing: 1.2,
+        marginBottom: 12,
+    },
 
     // User card
     userCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: '#161A1E',
         padding: 14,
-        borderRadius: 18,
-        marginBottom: 10,
+        borderRadius: 0,
+        borderBottomWidth: 1,
+        borderBottomColor: '#2B2F36',
         gap: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 6,
-        elevation: 1,
     },
     userInfo: { flex: 1 },
     userNameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
-    username: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
-    userTier: { fontSize: 11, color: '#aaa', fontWeight: '600', textTransform: 'capitalize' },
-    userRight: { alignItems: 'flex-end', gap: 4 },
-    followBtn: { backgroundColor: '#F5C400', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10 },
-    followingBtn: { backgroundColor: '#eee' },
-    followBtnText: { fontSize: 12, fontWeight: '700', color: '#1a1a1a' },
-    followingBtnText: { color: '#888' },
-    previewHint: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-    previewHintText: { fontSize: 10, color: '#bbb', fontWeight: '600' },
+    username: { fontSize: 14, fontWeight: '700', color: '#EAECEF' },
+    userTier: { fontSize: 11, color: '#848E9C', fontWeight: '600', textTransform: 'capitalize' },
+    followBtn: {
+        backgroundColor: 'rgba(240,185,11,0.15)',
+        paddingHorizontal: 14,
+        paddingVertical: 7,
+        borderRadius: 4,
+        borderWidth: 1,
+        borderColor: '#F0B90B',
+    },
+    followingBtn: { backgroundColor: '#1E2026', borderColor: '#2B2F36' },
+    followBtnText: { fontSize: 12, fontWeight: '700', color: '#F0B90B' },
+    followingBtnText: { color: '#848E9C' },
 
     // No results
     noResults: { alignItems: 'center', paddingTop: 48, gap: 10 },
     noResultsIcon: { fontSize: 40 },
-    noResultsText: { fontSize: 14, color: '#aaa', fontWeight: '600' },
+    noResultsText: { fontSize: 14, color: '#848E9C', fontWeight: '600' },
 
     // News
     newsCard: {
         flexDirection: 'row',
-        backgroundColor: '#fff',
+        backgroundColor: '#161A1E',
         padding: 14,
-        borderRadius: 18,
-        marginBottom: 12,
+        borderRadius: 0,
+        borderBottomWidth: 1,
+        borderBottomColor: '#2B2F36',
         gap: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 10,
-        elevation: 2,
     },
-    newsContent: { flex: 1, gap: 5 },
+    newsContent: { flex: 1, gap: 6 },
     newsTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     sentimentDot: { width: 6, height: 6, borderRadius: 3 },
-    newsSource: { fontSize: 10, fontWeight: '800', color: '#F5C400', textTransform: 'uppercase', flex: 1 },
-    newsDate: { fontSize: 10, color: '#bbb', fontWeight: '600' },
-    newsTitle: { fontSize: 14, fontWeight: '800', color: '#1a1a1a', lineHeight: 19 },
-    newsSummary: { fontSize: 12, color: '#777', lineHeight: 17, marginTop: 2 },
-    newsImg: { width: 76, height: 76, borderRadius: 12, backgroundColor: '#f5f5f5', alignSelf: 'center' },
-    tickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6 },
-    tickerBadge: { backgroundColor: '#f0f0f0', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
-    tickerText: { fontSize: 9, fontWeight: '700', color: '#666' },
+    newsSource: {
+        fontSize: 10, fontWeight: '800', color: '#F0B90B',
+        textTransform: 'uppercase', flex: 1,
+    },
+    newsDate: { fontSize: 10, color: '#474D57', fontWeight: '600' },
+    newsTitle: { fontSize: 13, fontWeight: '700', color: '#EAECEF', lineHeight: 19 },
+    newsSummary: { fontSize: 12, color: '#848E9C', lineHeight: 17 },
+    newsImg: { width: 72, height: 72, borderRadius: 6, backgroundColor: '#1E2026', alignSelf: 'center' },
+    tickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+    tickerBadge: { backgroundColor: '#1E2026', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#2B2F36' },
+    tickerText: { fontSize: 9, fontWeight: '700', color: '#848E9C' },
 });

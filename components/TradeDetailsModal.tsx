@@ -27,7 +27,7 @@ type Props = {
     visible: boolean;
     forecast: Trade | null;
     onClose: () => void;
-    onLike: () => void;
+    onLike: (id: string) => void;
     isLiked: boolean;
     currentUserId?: string;
     onUpdate?: () => void;
@@ -262,103 +262,109 @@ export default function TradeDetailsModal({
                                     />
                                 </View>
                                 <TouchableOpacity style={styles.saveBtn} onPress={handleUpdateTrade}>
-                                    <Text style={styles.saveBtnText}>Save All Changes</Text>
+                                    <Text style={styles.saveBtnText}>Save Changes</Text>
                                 </TouchableOpacity>
                             </View>
                         ) : (
                             <>
-                                <View style={styles.statsRow}>
-                                    <View style={styles.stat}>
-                                        <Text style={styles.statLabel}>Symbol</Text>
-                                        <Text style={styles.statValue}>{forecast.symbol}</Text>
+                                <View style={styles.mainInfo}>
+                                    <View style={styles.pairRow}>
+                                        <Text style={styles.pairText}>{forecast.symbol || forecast.currency_pair}</Text>
+                                        <View style={[styles.typeBadge, { backgroundColor: isProfitable ? '#E6FFFA' : '#FFF5F5' }]}>
+                                            <Text style={[styles.typeText, { color: isProfitable ? '#319795' : '#E53E3E' }]}>
+                                                {isProfitable ? 'PROFIT' : 'LOSS'}
+                                            </Text>
+                                        </View>
                                     </View>
-                                    <View style={styles.statDivider} />
-                                    <View style={styles.stat}>
-                                        <Text style={styles.statLabel}>Profit/Loss</Text>
-                                        <Text style={[styles.statValue, { color: (forecast.money_value || 0) >= 0 ? '#059669' : '#dc2626' }]}>
-                                            {(forecast.money_value || 0) >= 0 ? '+' : ''}${forecast.money_value?.toFixed(2)}
-                                        </Text>
-                                    </View>
+                                    <Text style={styles.profitText}>
+                                        {isProfitable ? '+' : ''}{forecast.money_value || forecast.profit || 0}$
+                                    </Text>
                                 </View>
 
                                 <View style={styles.detailsGrid}>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Type</Text>
-                                        <Text style={[styles.detailValue, { color: forecast.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]}>{forecast.trade_type || '—'}</Text>
+                                        <Text style={styles.detailValue}>{forecast.trade_type || 'N/A'}</Text>
                                     </View>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Entry</Text>
-                                        <Text style={styles.detailValue}>${forecast.entry_price || '—'}</Text>
+                                        <Text style={styles.detailValue}>${forecast.entry_price || '0.00'}</Text>
                                     </View>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Exit</Text>
-                                        <Text style={styles.detailValue}>${forecast.exit_price || '—'}</Text>
+                                        <Text style={styles.detailValue}>${forecast.exit_price || '0.00'}</Text>
                                     </View>
                                 </View>
+
+                                {forecast.notes || forecast.content ? (
+                                    <View style={styles.notesSection}>
+                                        <Text style={styles.sectionLabel}>Analysis</Text>
+                                        <Text style={styles.notesText}>{forecast.notes || forecast.content}</Text>
+                                    </View>
+                                ) : null}
+
+                                {forecast.tradingview_link || forecast.chart_image_url ? (
+                                    <View style={styles.chartSection}>
+                                        <Text style={styles.sectionLabel}>Chart</Text>
+                                        <Image
+                                            source={{ uri: getTradingViewImageUrl(forecast.tradingview_link || forecast.chart_image_url || '') || '' }}
+                                            style={styles.chartImage}
+                                            resizeMode="contain"
+                                        />
+                                    </View>
+                                ) : null}
                             </>
                         )}
 
-                        {(forecast.chart_image_url || forecast.tradingview_link) && (
-                            <View style={styles.chartWrapper}>
-                                <Image
-                                    source={{
-                                        uri: getTradingViewImageUrl(forecast.chart_image_url || forecast.tradingview_link) || ''
-                                    }}
-                                    style={styles.chartImage}
-                                    resizeMode="contain"
-                                />
+                        <View style={styles.actions}>
+                            <TouchableOpacity
+                                style={[styles.actionBtn, isLiked && styles.actionBtnActive]}
+                                onPress={() => onLike(forecast.id)}
+                            >
+                                <FontAwesome name={isLiked ? "heart" : "heart-o"} size={20} color={isLiked ? "#E53E3E" : "#4A5568"} />
+                                <Text style={[styles.actionText, isLiked && styles.actionTextActive]}>
+                                    {forecast.likes_count || 0}
+                                </Text>
+                            </TouchableOpacity>
+                            <View style={styles.actionBtn}>
+                                <FontAwesome name="comment-o" size={20} color="#4A5568" />
+                                <Text style={styles.actionText}>{comments.length}</Text>
                             </View>
-                        )}
-
-                        <View style={styles.analysisBox}>
-                            <Text style={styles.analysisTitle}>Trade Notes</Text>
-                            {isEditing ? (
-                                <View style={styles.editBox}>
-                                    <TextInput
-                                        style={styles.editInput}
-                                        value={editContent}
-                                        onChangeText={setEditContent}
-                                        multiline
-                                        autoFocus
-                                    />
-                                </View>
-                            ) : (
-                                <Text style={styles.analysisText}>{forecast.notes || 'No notes for this trade.'}</Text>
-                            )}
                         </View>
 
-                        <View style={styles.divider} />
-
                         <View style={styles.commentsSection}>
-                            <Text style={styles.sectionTitle}>Comments ({comments.length})</Text>
+                            <Text style={styles.sectionLabel}>Comments</Text>
+                            <View style={styles.commentInputRow}>
+                                <TextInput
+                                    style={styles.commentInput}
+                                    placeholder="Add a comment..."
+                                    value={newComment}
+                                    onChangeText={setNewComment}
+                                    multiline
+                                />
+                                <TouchableOpacity
+                                    style={[styles.sendBtn, !newComment.trim() && { opacity: 0.5 }]}
+                                    onPress={handleAddComment}
+                                    disabled={!newComment.trim() || submittingComment}
+                                >
+                                    <MaterialIcons name="send" size={24} color="#F5C400" />
+                                </TouchableOpacity>
+                            </View>
+
                             {comments.map((comment) => (
-                                <View key={comment.id} style={styles.commentRow}>
+                                <View key={comment.id} style={styles.commentItem}>
                                     <Avatar url={comment.users?.avatar_url} username={comment.users?.username ?? '?'} size={32} />
                                     <View style={styles.commentContent}>
-                                        <Text style={styles.commentUser}>{comment.users?.username ?? 'User'}</Text>
+                                        <View style={styles.commentHeader}>
+                                            <Text style={styles.commentUser}>{comment.users?.username}</Text>
+                                            <Text style={styles.commentTime}>{new Date(comment.created_at).toLocaleDateString()}</Text>
+                                        </View>
                                         <Text style={styles.commentText}>{comment.content}</Text>
                                     </View>
                                 </View>
                             ))}
                         </View>
                     </ScrollView>
-
-                    <View style={styles.commentInputArea}>
-                        <TextInput
-                            style={styles.commentInput}
-                            placeholder="Add a comment..."
-                            value={newComment}
-                            onChangeText={setNewComment}
-                            multiline
-                        />
-                        <TouchableOpacity
-                            style={[styles.sendBtn, !newComment.trim() && { opacity: 0.5 }]}
-                            onPress={handleAddComment}
-                            disabled={!newComment.trim() || submittingComment}
-                        >
-                            <FontAwesome name="send" size={18} color="#1a1a1a" />
-                        </TouchableOpacity>
-                    </View>
                 </Animated.View>
             </KeyboardAvoidingView>
         </Modal>
@@ -367,64 +373,56 @@ export default function TradeDetailsModal({
 
 const styles = StyleSheet.create({
     backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
-    sheet: { backgroundColor: '#FAFAF8', borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden', height: SHEET_H },
-    handleArea: { paddingVertical: 14, alignItems: 'center' },
-    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#ddd' },
-    content: { padding: 20, paddingBottom: 100, gap: 16 },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    headerInfo: { flex: 1, gap: 3 },
+    sheet: { backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32, height: SHEET_H, overflow: 'hidden' },
+    handleArea: { height: 32, alignItems: 'center', justifyContent: 'center' },
+    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E2E8F0' },
+    content: { padding: 24, paddingBottom: 100 },
+    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+    headerInfo: { flex: 1, marginLeft: 12 },
     usernameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    username: { fontSize: 16, fontWeight: '800', color: '#1a1a1a' },
-    timestamp: { fontSize: 12, color: '#aaa' },
+    username: { fontSize: 16, fontWeight: '700', color: '#1A202C' },
+    timestamp: { fontSize: 12, color: '#718096', marginTop: 2 },
     ownerActions: { flexDirection: 'row', gap: 12 },
-    iconBtn: { padding: 8 },
-    statsRow: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 16, alignItems: 'center' },
-    stat: { flex: 1, alignItems: 'center', gap: 4 },
-    statLabel: { fontSize: 11, color: '#aaa', fontWeight: '600' },
-    statValue: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
-    statDivider: { width: 1, height: 36, backgroundColor: '#eee' },
-    editGrid: { backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 12 },
-    editField: { gap: 6 },
-    editLabel: { fontSize: 12, fontWeight: '700', color: '#666', textTransform: 'uppercase' },
-    editTextInput: { backgroundColor: '#f5f5f5', borderRadius: 10, padding: 12, fontSize: 15, borderWidth: 1, borderColor: '#eee' },
-    typeButtonsRow: { flexDirection: 'row', gap: 10 },
-    typeButton: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#f5f5f5', borderWidth: 1.5, borderColor: '#eee', alignItems: 'center' },
-    typeButtonActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
-    typeButtonText: { fontSize: 14, fontWeight: '700', color: '#666' },
-    typeButtonTextActive: { color: '#F5C400' },
-    detailsGrid: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 16, marginVertical: 10, gap: 20 },
+    iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F7FAFC', alignItems: 'center', justifyContent: 'center' },
+    mainInfo: { marginBottom: 24 },
+    pairRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+    pairText: { fontSize: 28, fontWeight: '800', color: '#1A202C' },
+    typeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    typeText: { fontSize: 10, fontWeight: '800' },
+    profitText: { fontSize: 36, fontWeight: '900', color: '#1A202C' },
+    detailsGrid: { flexDirection: 'row', backgroundColor: '#F7FAFC', borderRadius: 20, padding: 20, marginBottom: 24 },
     detailItem: { flex: 1 },
-    detailLabel: { fontSize: 11, fontWeight: '800', color: '#A0AEC0', textTransform: 'uppercase' },
-    detailValue: { fontSize: 15, fontWeight: '700', color: '#2D3748', marginTop: 4 },
-    chartWrapper: {
-        width: '100%',
-        height: 250,
-        borderRadius: 16,
-        backgroundColor: '#f8fafc',
-        marginVertical: 10,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-    },
-    chartImage: {
-        width: '100%',
-        height: '100%',
-    },
-    analysisBox: { backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 8 },
-    analysisTitle: { fontSize: 13, fontWeight: '700', color: '#1a1a1a', textTransform: 'uppercase' },
-    analysisText: { fontSize: 15, color: '#444', lineHeight: 23 },
-    editBox: { gap: 12 },
-    editInput: { backgroundColor: '#f5f5f5', borderRadius: 12, padding: 12, fontSize: 15, minHeight: 100 },
-    saveBtn: { backgroundColor: '#F5C400', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 8 },
-    saveBtnText: { fontWeight: '800', color: '#1a1a1a', fontSize: 15 },
-    divider: { height: 1, backgroundColor: '#eee', marginVertical: 8 },
-    commentsSection: { gap: 16 },
-    sectionTitle: { fontSize: 16, fontWeight: '800', color: '#1a1a1a' },
-    commentRow: { flexDirection: 'row', gap: 12 },
-    commentContent: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 10 },
-    commentUser: { fontSize: 13, fontWeight: '700', color: '#1a1a1a', marginBottom: 2 },
-    commentText: { fontSize: 14, color: '#444', lineHeight: 20 },
-    commentInputArea: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#eee', gap: 12 },
-    commentInput: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, maxHeight: 100 },
-    sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F5C400', alignItems: 'center', justifyContent: 'center' },
+    detailLabel: { fontSize: 12, color: '#718096', marginBottom: 4, fontWeight: '600' },
+    detailValue: { fontSize: 16, fontWeight: '700', color: '#2D3748' },
+    notesSection: { marginBottom: 24 },
+    sectionLabel: { fontSize: 14, fontWeight: '800', color: '#718096', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
+    notesText: { fontSize: 16, color: '#4A5568', lineHeight: 24 },
+    chartSection: { marginBottom: 24 },
+    chartImage: { width: '100%', height: 200, borderRadius: 16, backgroundColor: '#F7FAFC' },
+    actions: { flexDirection: 'row', gap: 16, paddingVertical: 16, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#EDF2F7', marginBottom: 24 },
+    actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F7FAFC', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
+    actionBtnActive: { backgroundColor: '#FFF5F5' },
+    actionText: { fontSize: 14, fontWeight: '700', color: '#4A5568' },
+    actionTextActive: { color: '#E53E3E' },
+    commentsSection: {},
+    commentInputRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
+    commentInput: { flex: 1, backgroundColor: '#F7FAFC', borderRadius: 16, padding: 12, fontSize: 14, maxHeight: 100 },
+    sendBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+    commentItem: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+    commentContent: { flex: 1 },
+    commentHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+    commentUser: { fontSize: 14, fontWeight: '700', color: '#2D3748' },
+    commentTime: { fontSize: 12, color: '#A0AEC0' },
+    commentText: { fontSize: 14, color: '#4A5568', lineHeight: 20 },
+    editGrid: { gap: 16 },
+    editField: { gap: 8 },
+    editLabel: { fontSize: 12, fontWeight: '700', color: '#718096' },
+    editTextInput: { backgroundColor: '#F7FAFC', borderRadius: 12, padding: 12, fontSize: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+    typeButtonsRow: { flexDirection: 'row', gap: 12 },
+    typeButton: { flex: 1, height: 44, borderRadius: 12, backgroundColor: '#F7FAFC', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
+    typeButtonActive: { backgroundColor: '#F5C400', borderColor: '#F5C400' },
+    typeButtonText: { fontSize: 14, fontWeight: '700', color: '#718096' },
+    typeButtonTextActive: { color: '#1A202C' },
+    saveBtn: { backgroundColor: '#F5C400', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+    saveBtnText: { fontSize: 16, fontWeight: '800', color: '#1A202C' },
 });

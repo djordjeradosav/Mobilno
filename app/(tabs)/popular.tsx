@@ -23,7 +23,6 @@ import ProfilePreviewSheet from '@/components/ProfilePreviewSheet';
 
 const { width: SW } = Dimensions.get('window');
 
-// ─── Feed Filter ────────────────────────────────────────────────────────────
 type Filter = 'all' | 'following' | 'top';
 const FILTERS: { key: Filter; label: string }[] = [
     { key: 'all', label: 'Latest' },
@@ -31,7 +30,6 @@ const FILTERS: { key: Filter; label: string }[] = [
     { key: 'top', label: 'Top' },
 ];
 
-// ─── Time helper ────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string) {
     const diff = Date.now() - new Date(dateStr).getTime();
     const m = Math.floor(diff / 60000);
@@ -42,7 +40,6 @@ function timeAgo(dateStr: string) {
     return `${Math.floor(h / 24)}d`;
 }
 
-// ─── Post Card ───────────────────────────────────────────────────────────────
 type PostCardProps = {
     trade: Trade;
     isLiked: boolean;
@@ -59,23 +56,23 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
 
     const handleLikePress = () => {
         Animated.sequence([
-            Animated.timing(scaleAnim, { toValue: 1.35, duration: 120, useNativeDriver: true }),
-            Animated.timing(scaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
+            Animated.timing(scaleAnim, { toValue: 1.4, duration: 100, useNativeDriver: true }),
+            Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
         ]).start();
         onLike(trade.id);
     };
 
     return (
-        <TouchableOpacity style={s.card} onPress={() => onPress(trade)} activeOpacity={0.97}>
+        <TouchableOpacity style={s.card} onPress={() => onPress(trade)} activeOpacity={0.95}>
             {/* Header */}
             <View style={s.cardHeader}>
                 <TouchableOpacity style={s.userRow} onPress={() => onAvatarPress(trade.user_id)}>
-                    <Avatar url={user?.avatar_url} username={user?.username ?? '?'} size={40} />
+                    <Avatar url={user?.avatar_url} username={user?.username ?? '?'} size={38} />
                     <View style={s.userMeta}>
                         <View style={s.nameRow}>
                             <Text style={s.userName}>@{user?.username ?? 'trader'}</Text>
                             {user?.is_verified && (
-                                <MaterialIcons name="verified" size={13} color="#F5C400" />
+                                <MaterialIcons name="verified" size={12} color="#F0B90B" />
                             )}
                         </View>
                         <Text style={s.timeText}>{timeAgo(trade.created_at)}</Text>
@@ -83,13 +80,25 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
                 </TouchableOpacity>
 
                 <View style={s.badgeGroup}>
-                    <View style={[s.typeBadge, { backgroundColor: trade.trade_type === 'Buy' ? '#EBF8FF' : '#FFF5F5' }]}>
-                        <Text style={[s.typeBadgeText, { color: trade.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]}>
+                    <View style={[s.typeBadge, {
+                        backgroundColor: trade.trade_type === 'Buy'
+                            ? 'rgba(14,203,129,0.12)'
+                            : 'rgba(246,70,93,0.12)'
+                    }]}>
+                        <Text style={[s.typeBadgeText, {
+                            color: trade.trade_type === 'Buy' ? '#0ECB81' : '#F6465D'
+                        }]}>
                             {trade.trade_type}
                         </Text>
                     </View>
-                    <View style={[s.symbolBadge, { backgroundColor: isProfitable ? '#ecfdf5' : '#fef2f2' }]}>
-                        <Text style={[s.symbolText, { color: isProfitable ? '#059669' : '#dc2626' }]}>
+                    <View style={[s.symbolBadge, {
+                        backgroundColor: isProfitable
+                            ? 'rgba(14,203,129,0.12)'
+                            : 'rgba(246,70,93,0.12)'
+                    }]}>
+                        <Text style={[s.symbolText, {
+                            color: isProfitable ? '#0ECB81' : '#F6465D'
+                        }]}>
                             {trade.symbol}
                         </Text>
                     </View>
@@ -114,13 +123,17 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
 
             {/* Footer */}
             <View style={s.cardFooter}>
-                <View style={[s.plBadge, { backgroundColor: isProfitable ? '#ecfdf5' : '#fef2f2' }]}>
+                <View style={[s.plBadge, {
+                    backgroundColor: isProfitable
+                        ? 'rgba(14,203,129,0.12)'
+                        : 'rgba(246,70,93,0.12)'
+                }]}>
                     <FontAwesome
                         name={isProfitable ? 'arrow-up' : 'arrow-down'}
-                        size={10}
-                        color={isProfitable ? '#059669' : '#dc2626'}
+                        size={9}
+                        color={isProfitable ? '#0ECB81' : '#F6465D'}
                     />
-                    <Text style={[s.plText, { color: isProfitable ? '#059669' : '#dc2626' }]}>
+                    <Text style={[s.plText, { color: isProfitable ? '#0ECB81' : '#F6465D' }]}>
                         {isProfitable ? '+' : '-'}${Math.abs(trade.money_value || 0).toFixed(2)}
                     </Text>
                 </View>
@@ -130,17 +143,17 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
                         <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
                             <FontAwesome
                                 name={isLiked ? 'heart' : 'heart-o'}
-                                size={17}
-                                color={isLiked ? '#ef4444' : '#bbb'}
+                                size={15}
+                                color={isLiked ? '#F6465D' : '#848E9C'}
                             />
                         </Animated.View>
-                        <Text style={[s.actionCount, isLiked && { color: '#ef4444' }]}>
+                        <Text style={[s.actionCount, isLiked && { color: '#F6465D' }]}>
                             {trade.likes_count || 0}
                         </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={s.actionBtn} onPress={() => onPress(trade)}>
-                        <FontAwesome name="comment-o" size={17} color="#bbb" />
+                        <FontAwesome name="comment-o" size={15} color="#848E9C" />
                         <Text style={s.actionCount}>{trade.comments_count || 0}</Text>
                     </TouchableOpacity>
                 </View>
@@ -149,7 +162,6 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
     );
 }
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function Feed() {
     const { user } = useAuth();
     const router = useRouter();
@@ -162,17 +174,12 @@ export default function Feed() {
     const [modalVisible, setModalVisible] = useState(false);
     const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
-
-    // Profile preview sheet
     const [previewUserId, setPreviewUserId] = useState<string | null>(null);
     const [sheetVisible, setSheetVisible] = useState(false);
 
     const fetchFollowing = useCallback(async () => {
         if (!user?.id) return;
-        const { data } = await supabase
-            .from('follows')
-            .select('followed_id')
-            .eq('follower_id', user.id);
+        const { data } = await supabase.from('follows').select('followed_id').eq('follower_id', user.id);
         if (data) setFollowingIds(new Set(data.map(f => f.followed_id)));
     }, [user?.id]);
 
@@ -275,7 +282,7 @@ export default function Feed() {
     if (loading) {
         return (
             <View style={s.loader}>
-                <ActivityIndicator size="large" color="#F5C400" />
+                <ActivityIndicator size="large" color="#F0B90B" />
             </View>
         );
     }
@@ -289,8 +296,8 @@ export default function Feed() {
                     style={s.postBtn}
                     onPress={() => router.push('/(tabs)/forecast')}
                 >
-                    <FontAwesome name="plus" size={14} color="#1a1a1a" />
-                    <Text style={s.postBtnText}>Post trade</Text>
+                    <FontAwesome name="plus" size={13} color="#0B0E11" />
+                    <Text style={s.postBtnText}>Post Trade</Text>
                 </TouchableOpacity>
             </View>
 
@@ -305,9 +312,12 @@ export default function Feed() {
                         <Text style={[s.filterLabel, filter === f.key && s.filterLabelActive]}>
                             {f.label}
                         </Text>
+                        {filter === f.key && <View style={s.filterUnderline} />}
                     </TouchableOpacity>
                 ))}
             </View>
+
+            <View style={s.dividerLine} />
 
             {/* Feed */}
             <FlatList
@@ -316,7 +326,12 @@ export default function Feed() {
                 contentContainerStyle={s.list}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F5C400" />
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor="#F0B90B"
+                        colors={['#F0B90B']}
+                    />
                 }
                 ListEmptyComponent={
                     <View style={s.empty}>
@@ -368,79 +383,84 @@ export default function Feed() {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#F5F5F3' },
-    loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F3' },
+    root: { flex: 1, backgroundColor: '#0B0E11' },
+    loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0E11' },
 
-    // Header
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: 12,
-        paddingBottom: 10,
+        paddingTop: 8,
+        paddingBottom: 16,
     },
-    logo: { fontSize: 24, fontWeight: '900', color: '#1a1a1a', fontStyle: 'italic', letterSpacing: -0.5 },
+    logo: {
+        fontSize: 22,
+        fontWeight: '900',
+        fontStyle: 'italic',
+        color: '#F0B90B',
+        letterSpacing: -0.5,
+    },
     postBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: '#F5C400',
+        backgroundColor: '#F0B90B',
         paddingHorizontal: 14,
         paddingVertical: 8,
-        borderRadius: 20,
+        borderRadius: 8,
     },
-    postBtnText: { fontSize: 13, fontWeight: '800', color: '#1a1a1a' },
+    postBtnText: { fontSize: 13, fontWeight: '800', color: '#0B0E11' },
 
-    // Filter
     filterRow: {
         flexDirection: 'row',
         paddingHorizontal: 20,
-        paddingBottom: 12,
-        gap: 8,
+        gap: 4,
     },
     filterTab: {
         paddingHorizontal: 16,
-        paddingVertical: 7,
-        borderRadius: 20,
-        backgroundColor: '#fff',
-        borderWidth: 1.5,
-        borderColor: '#eee',
+        paddingVertical: 10,
+        position: 'relative',
     },
-    filterTabActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
-    filterLabel: { fontSize: 13, fontWeight: '700', color: '#888' },
-    filterLabelActive: { color: '#F5C400' },
+    filterTabActive: {},
+    filterLabel: { fontSize: 14, fontWeight: '600', color: '#848E9C' },
+    filterLabelActive: { color: '#EAECEF', fontWeight: '700' },
+    filterUnderline: {
+        position: 'absolute',
+        bottom: 0,
+        left: 16,
+        right: 16,
+        height: 2,
+        backgroundColor: '#F0B90B',
+        borderRadius: 1,
+    },
+    dividerLine: { height: 1, backgroundColor: '#2B2F36', marginBottom: 12 },
 
-    // List
-    list: { paddingHorizontal: 16, paddingBottom: 100, gap: 12 },
+    list: { paddingHorizontal: 16, paddingBottom: 100, gap: 1 },
 
-    // Card
     card: {
-        backgroundColor: '#fff',
-        borderRadius: 20,
+        backgroundColor: '#161A1E',
+        borderRadius: 0,
         padding: 16,
         gap: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
+        borderBottomWidth: 1,
+        borderBottomColor: '#2B2F36',
     },
     cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     userRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
     userMeta: { gap: 2 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    userName: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
-    timeText: { fontSize: 12, color: '#bbb', fontWeight: '500' },
+    userName: { fontSize: 14, fontWeight: '700', color: '#EAECEF' },
+    timeText: { fontSize: 12, color: '#474D57', fontWeight: '500' },
     badgeGroup: { flexDirection: 'row', gap: 6 },
-    typeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7 },
+    typeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
     typeBadgeText: { fontSize: 10, fontWeight: '800' },
-    symbolBadge: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 7 },
+    symbolBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
     symbolText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
 
-    notes: { fontSize: 14, color: '#444', lineHeight: 21 },
+    notes: { fontSize: 14, color: '#848E9C', lineHeight: 21 },
 
-    chartWrap: { borderRadius: 14, overflow: 'hidden', backgroundColor: '#f5f5f5' },
+    chartWrap: { borderRadius: 8, overflow: 'hidden', backgroundColor: '#1E2026' },
     chartImg: { width: '100%', height: 190 },
 
     cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -449,25 +469,24 @@ const s = StyleSheet.create({
         alignItems: 'center',
         gap: 5,
         paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 10,
+        paddingVertical: 5,
+        borderRadius: 4,
     },
-    plText: { fontSize: 14, fontWeight: '900' },
+    plText: { fontSize: 13, fontWeight: '900' },
     actions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
     actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    actionCount: { fontSize: 13, fontWeight: '700', color: '#aaa' },
+    actionCount: { fontSize: 13, fontWeight: '600', color: '#848E9C' },
 
-    // Empty
     empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 10 },
     emptyIcon: { fontSize: 48 },
-    emptyTitle: { fontSize: 20, fontWeight: '900', color: '#1a1a1a' },
-    emptySubtitle: { fontSize: 14, color: '#999', textAlign: 'center', lineHeight: 20 },
+    emptyTitle: { fontSize: 18, fontWeight: '800', color: '#EAECEF' },
+    emptySubtitle: { fontSize: 14, color: '#848E9C', textAlign: 'center', lineHeight: 20 },
     emptyBtn: {
         marginTop: 12,
-        backgroundColor: '#F5C400',
+        backgroundColor: '#F0B90B',
         paddingHorizontal: 20,
         paddingVertical: 12,
-        borderRadius: 20,
+        borderRadius: 8,
     },
-    emptyBtnText: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
+    emptyBtnText: { fontSize: 14, fontWeight: '800', color: '#0B0E11' },
 });

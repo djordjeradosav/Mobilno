@@ -20,13 +20,13 @@ function TabIcon({
                 <MaterialIcons
                     name={materialIcon as any}
                     size={22}
-                    color={focused ? '#F5C400' : '#999'}
+                    color={focused ? '#F0B90B' : '#474D57'}
                 />
             ) : (
                 <FontAwesome
                     name={iconName as any}
                     size={20}
-                    color={focused ? '#F5C400' : '#999'}
+                    color={focused ? '#F0B90B' : '#474D57'}
                 />
             )}
             <Text style={[tabStyles.label, focused && tabStyles.labelActive]}>
@@ -38,8 +38,8 @@ function TabIcon({
 
 const tabStyles = StyleSheet.create({
     wrap: { alignItems: 'center', gap: 4, paddingTop: 6, paddingBottom: 2 },
-    label: { fontSize: 11, fontWeight: '700', color: '#999', letterSpacing: 0.3 },
-    labelActive: { color: '#F5C400' },
+    label: { fontSize: 10, fontWeight: '700', color: '#474D57', letterSpacing: 0.3 },
+    labelActive: { color: '#F0B90B' },
 });
 
 export default function TabsLayout() {
@@ -56,29 +56,28 @@ export default function TabsLayout() {
             screenOptions={{
                 headerShown: false,
                 tabBarShowLabel: false,
-                tabBarItemStyle: { justifyContent: 'center', alignItems: 'center' },
                 tabBarStyle: {
-                    backgroundColor: '#1a1a1a',
+                    backgroundColor: '#161A1E',
                     borderTopWidth: 1,
-                    borderTopColor: '#2a2a2a',
-                    height: 76,
-                    paddingBottom: 12,
-                    paddingTop: 8,
+                    borderTopColor: '#2B2F36',
+                    height: 72,
+                    paddingBottom: 10,
+                    paddingTop: 6,
                     elevation: 20,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: -4 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 12,
+                    shadowOpacity: 0.5,
+                    shadowRadius: 16,
                 },
-                tabBarActiveTintColor: '#F5C400',
-                tabBarInactiveTintColor: '#999',
+                tabBarActiveTintColor: '#F0B90B',
+                tabBarInactiveTintColor: '#474D57',
             }}
         >
             <Tabs.Screen
                 name="popular"
                 options={{
                     tabBarIcon: ({ focused }) => (
-                        <TabIcon iconName="fire" label="Popular" focused={focused} />
+                        <TabIcon iconName="fire" label="Feed" focused={focused} />
                     ),
                 }}
             />
@@ -86,7 +85,7 @@ export default function TabsLayout() {
                 name="search"
                 options={{
                     tabBarIcon: ({ focused }) => (
-                        <TabIcon iconName="search" label="Search" focused={focused} />
+                        <TabIcon iconName="search" label="Explore" focused={focused} />
                     ),
                 }}
             />
@@ -94,7 +93,14 @@ export default function TabsLayout() {
                 name="forecast"
                 options={{
                     tabBarIcon: ({ focused }) => (
-                        <TabIcon materialIcon="trending-up" label="Forecast" focused={focused} />
+                        <View style={tabStyles.wrap}>
+                            <View style={[
+                                postBtnStyle.btn,
+                                focused && postBtnStyle.btnActive
+                            ]}>
+                                <FontAwesome name="plus" size={18} color="#0B0E11" />
+                            </View>
+                        </View>
                     ),
                 }}
             />
@@ -112,9 +118,23 @@ export default function TabsLayout() {
                     tabBarIcon: ({ focused }) => (
                         <TabIcon iconName="user-circle" label="Profile" focused={focused} />
                     ),
-                    tabBarItemStyle: { flex: 1, justifyContent: 'center' },
                 }}
             />
         </Tabs>
     );
 }
+
+const postBtnStyle = StyleSheet.create({
+    btn: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: '#F0B90B',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 2,
+    },
+    btnActive: {
+        backgroundColor: '#D4A017',
+    },
+});

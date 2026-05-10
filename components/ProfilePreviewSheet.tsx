@@ -253,7 +253,7 @@ export default function ProfilePreviewSheet({
 
                             {detail.recentTrades.length > 0 && (
                                 <View style={styles.tradesSection}>
-                                    <Text style={styles.recentTradesTitle}>Recent Forecasts</Text>
+                                    <Text style={styles.sectionTitle}>Recent Forecasts</Text>
                                     {detail.recentTrades.map(forecast => (
                                         <TouchableOpacity
                                             key={forecast.id}
@@ -283,7 +283,7 @@ export default function ProfilePreviewSheet({
                 visible={tradeModalVisible}
                 forecast={selectedTrade}
                 onClose={() => setTradeModalVisible(false)}
-                onLike={() => { }} // Not implemented in preview for now
+                onLike={() => { }}
                 isLiked={false}
                 currentUserId={currentUserId}
             />

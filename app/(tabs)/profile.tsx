@@ -9,7 +9,6 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
-    Image,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -41,6 +40,15 @@ function formatMemberSince(dateStr: string) {
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
+function StatCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
+    return (
+        <View style={styles.statCard}>
+            <Text style={[styles.statNum, color ? { color } : {}]}>{value}</Text>
+            <Text style={styles.statLabel}>{label}</Text>
+        </View>
+    );
+}
+
 export default function Profile() {
     const { user, signOut } = useAuth();
     const router = useRouter();
@@ -58,43 +66,33 @@ export default function Profile() {
 
     const fetchProfile = useCallback(async () => {
         if (!user?.id) return;
-        const { data, error } = await supabase
-            .from('users').select('*').eq('id', user.id).maybeSingle();
+        const { data, error } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
         if (error) console.error('[fetchProfile]', error.message);
         if (data) setProfile(data as ProfileData);
     }, [user?.id]);
 
     const fetchMyTrades = useCallback(async () => {
         if (!user?.id) return;
-        try {
-            // Fetch trades only (avoiding relationship errors)
-            const { data: tradesData, error: tradesError } = await supabase
-                .from('trades')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
+        const { data: tradesData, error } = await supabase
+            .from('trades')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
 
-            if (tradesError) {
-                console.error('[fetchMyTrades] Trades Fetch Error:', tradesError.message);
-                return;
-            }
+        if (error) { console.error('[fetchMyTrades]', error.message); return; }
 
-            // Manually join with the user profile
-            if (tradesData && profile) {
-                const combined = tradesData.map(t => ({
-                    ...t,
-                    users: {
-                        username: profile.username,
-                        avatar_url: profile.avatar_url,
-                        is_verified: profile.is_verified
-                    }
-                }));
-                setMyTrades(combined as Trade[]);
-            } else if (tradesData) {
-                setMyTrades(tradesData as Trade[]);
-            }
-        } catch (err) {
-            console.error('[fetchMyTrades] Unexpected Error:', err);
+        if (tradesData && profile) {
+            const combined = tradesData.map(t => ({
+                ...t,
+                users: {
+                    username: profile.username,
+                    avatar_url: profile.avatar_url,
+                    is_verified: profile.is_verified,
+                },
+            }));
+            setMyTrades(combined as Trade[]);
+        } else if (tradesData) {
+            setMyTrades(tradesData as Trade[]);
         }
     }, [user?.id, profile]);
 
@@ -115,12 +113,11 @@ export default function Profile() {
 
         if (followingData && followingData.length > 0) {
             const ids = followingData.map((f: { followed_id: string }) => f.followed_id);
-            const { data: usersData, error } = await supabase
+            const { data: usersData } = await supabase
                 .from('users')
                 .select('id, username, avatar_url, is_verified')
                 .in('id', ids)
                 .limit(10);
-            if (error) console.error('[fetchFollowed:users]', error.message);
             if (usersData) setFollowed(usersData as FollowedUser[]);
         } else {
             setFollowed([]);
@@ -129,17 +126,13 @@ export default function Profile() {
 
     const fetchLikes = useCallback(async () => {
         if (!user?.id) return;
-        const { data } = await supabase
-            .from('likes')
-            .select('trade_id')
-            .eq('user_id', user.id);
+        const { data } = await supabase.from('likes').select('trade_id').eq('user_id', user.id);
         if (data) setLikedIds(new Set(data.map(l => l.trade_id)));
     }, [user?.id]);
 
     const init = useCallback(async () => {
         setLoading(true);
         await Promise.all([fetchProfile(), fetchFollowed(), fetchLikes()]);
-        // fetchMyTrades depends on profile, so we call it after
         await fetchMyTrades();
         setLoading(false);
     }, [fetchProfile, fetchMyTrades, fetchFollowed, fetchLikes]);
@@ -189,13 +182,17 @@ export default function Profile() {
     if (loading) {
         return (
             <View style={styles.loader}>
-                <ActivityIndicator size="large" color="#F5C400" />
+                <ActivityIndicator size="large" color="#F0B90B" />
             </View>
         );
     }
 
     const displayName = profile?.username ?? 'trader';
     const memberSince = profile?.member_since ? formatMemberSince(profile.member_since) : 'Recently joined';
+    const totalPL = myTrades.reduce((sum, t) => sum + (t.money_value || 0), 0);
+    const winRate = myTrades.length
+        ? Math.round((myTrades.filter(t => (t.money_value || 0) > 0).length / myTrades.length) * 100)
+        : 0;
 
     return (
         <SafeAreaView style={styles.root} edges={['top']}>
@@ -203,86 +200,116 @@ export default function Profile() {
                 style={styles.scroll}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F5C400" />
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor="#F0B90B"
+                        colors={['#F0B90B']}
+                    />
                 }
             >
+                {/* Header */}
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Profile</Text>
-                    <TouchableOpacity style={styles.settingsBtn} onPress={handleSignOut}>
-                        <FontAwesome name="sign-out" size={20} color="#1a1a1a" />
+                    <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
+                        <FontAwesome name="sign-out" size={18} color="#848E9C" />
                     </TouchableOpacity>
                 </View>
 
+                <View style={styles.dividerLine} />
+
+                {/* Profile card */}
                 <View style={styles.profileCard}>
-                    <View style={styles.avatarWrap}>
-                        <Avatar url={profile?.avatar_url} username={displayName} size={80} />
+                    <View style={styles.avatarSection}>
+                        <Avatar url={profile?.avatar_url} username={displayName} size={72} />
                         {profile?.is_verified && (
                             <View style={styles.verifiedBadge}>
-                                <MaterialIcons name="verified" size={16} color="#F5C400" />
+                                <MaterialIcons name="verified" size={14} color="#F0B90B" />
                             </View>
                         )}
                     </View>
                     <View style={styles.profileInfo}>
                         <View style={styles.nameRow}>
                             <Text style={styles.username}>@{displayName}</Text>
-                            <View style={[styles.tierBadge, profile?.subscription_tier === 'pro' && styles.tierBadgePro]}>
-                                <Text style={[styles.tierText, profile?.subscription_tier === 'pro' && styles.tierTextPro]}>
+                            <View style={[
+                                styles.tierBadge,
+                                profile?.subscription_tier === 'pro' && styles.tierBadgePro
+                            ]}>
+                                <Text style={[
+                                    styles.tierText,
+                                    profile?.subscription_tier === 'pro' && styles.tierTextPro
+                                ]}>
                                     {(profile?.subscription_tier ?? 'free').toUpperCase()}
                                 </Text>
                             </View>
                         </View>
                         <Text style={styles.memberSince}>Member since {memberSince}</Text>
                     </View>
-                    <View style={styles.statsRow}>
-                        <View style={styles.stat}>
-                            <Text style={styles.statNum}>{myTrades.length}</Text>
-                            <Text style={styles.statLabel}>Trades</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.stat}>
-                            <Text style={styles.statNum}>{followerCount}</Text>
-                            <Text style={styles.statLabel}>Followers</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.stat}>
-                            <Text style={styles.statNum}>{followingCount}</Text>
-                            <Text style={styles.statLabel}>Following</Text>
-                        </View>
-                    </View>
                 </View>
 
+                {/* Stats grid */}
+                <View style={styles.statsGrid}>
+                    <StatCard label="Trades" value={myTrades.length} />
+                    <StatCard label="Followers" value={followerCount} />
+                    <StatCard label="Following" value={followingCount} />
+                    <StatCard
+                        label="Total P&L"
+                        value={`${totalPL >= 0 ? '+' : ''}$${Math.abs(totalPL).toFixed(0)}`}
+                        color={totalPL >= 0 ? '#0ECB81' : '#F6465D'}
+                    />
+                    <StatCard label="Win Rate" value={`${winRate}%`} color="#F0B90B" />
+                </View>
+
+                {/* My Trades */}
                 {myTrades.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>📈 My Trades</Text>
+                        <Text style={styles.sectionTitle}>My Trades</Text>
                         <FlatList
                             horizontal
                             data={myTrades}
                             keyExtractor={(item) => item.id}
                             showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{ gap: 12, paddingRight: 20 }}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={styles.tradeCard}
-                                    onPress={() => { setSelectedTrade(item); setModalVisible(true); }}
-                                    activeOpacity={0.9}
-                                >
-                                    <Text style={styles.tradePair}>{item.symbol || 'UNKNOWN'}</Text>
-                                    <Text style={[styles.tradeProfit, { color: (item.money_value || 0) >= 0 ? '#059669' : '#dc2626' }]}>
-                                        {(item.money_value || 0) >= 0 ? '+' : ''}${Math.abs(item.money_value || 0).toFixed(2)}
-                                    </Text>
-                                    <View style={styles.tradeLikes}>
-                                        <FontAwesome name="heart" size={12} color="#ef4444" />
-                                        <Text style={styles.tradeLikeCount}>{item.likes_count}</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            )}
+                            contentContainerStyle={{ gap: 10, paddingRight: 20 }}
+                            renderItem={({ item }) => {
+                                const isProfitable = (item.money_value || 0) >= 0;
+                                return (
+                                    <TouchableOpacity
+                                        style={styles.tradeCard}
+                                        onPress={() => { setSelectedTrade(item); setModalVisible(true); }}
+                                        activeOpacity={0.85}
+                                    >
+                                        <View style={[styles.tradeTypeBadge, {
+                                            backgroundColor: isProfitable
+                                                ? 'rgba(14,203,129,0.12)'
+                                                : 'rgba(246,70,93,0.12)'
+                                        }]}>
+                                            <Text style={[styles.tradeTypeBadgeText, {
+                                                color: isProfitable ? '#0ECB81' : '#F6465D'
+                                            }]}>
+                                                {item.trade_type}
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.tradePair}>{item.symbol || 'UNKNOWN'}</Text>
+                                        <Text style={[styles.tradeProfit, {
+                                            color: isProfitable ? '#0ECB81' : '#F6465D'
+                                        }]}>
+                                            {isProfitable ? '+' : ''}${Math.abs(item.money_value || 0).toFixed(2)}
+                                        </Text>
+                                        <View style={styles.tradeLikes}>
+                                            <FontAwesome name="heart" size={10} color="#F6465D" />
+                                            <Text style={styles.tradeLikeCount}>{item.likes_count}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            }}
                         />
                     </View>
                 )}
 
+                {/* Following */}
                 {followed.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>👥 Following</Text>
+                        <Text style={styles.sectionTitle}>Following</Text>
                         <FlatList
                             horizontal
                             data={followed}
@@ -294,13 +321,17 @@ export default function Profile() {
                                     style={styles.followedUser}
                                     onPress={() => router.push(`/user-profile?userId=${item.id}`)}
                                 >
-                                    <Avatar url={item.avatar_url} username={item.username} size={50} />
-                                    <Text style={styles.followedName} numberOfLines={1}>@{item.username}</Text>
+                                    <Avatar url={item.avatar_url} username={item.username} size={48} />
+                                    <Text style={styles.followedName} numberOfLines={1}>
+                                        @{item.username}
+                                    </Text>
                                 </TouchableOpacity>
                             )}
                         />
                     </View>
                 )}
+
+                <View style={{ height: 100 }} />
             </ScrollView>
 
             <TradeDetailsModal
@@ -317,35 +348,99 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#FAFAF8' },
+    root: { flex: 1, backgroundColor: '#0B0E11' },
     scroll: { flex: 1 },
-    loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
-    headerTitle: { fontSize: 24, fontWeight: '900', color: '#1a1a1a' },
-    settingsBtn: { padding: 8 },
-    profileCard: { backgroundColor: '#fff', marginHorizontal: 20, borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 15, elevation: 5 },
-    avatarWrap: { position: 'relative', marginBottom: 16 },
-    verifiedBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#fff', borderRadius: 10, padding: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
-    profileInfo: { alignItems: 'center', gap: 4, marginBottom: 24 },
+    loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0E11' },
+    header: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingHorizontal: 20, paddingVertical: 16,
+    },
+    headerTitle: { fontSize: 20, fontWeight: '900', color: '#EAECEF' },
+    signOutBtn: {
+        width: 40, height: 40, borderRadius: 12,
+        backgroundColor: '#1E2026',
+        alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: '#2B2F36',
+    },
+    dividerLine: { height: 1, backgroundColor: '#2B2F36' },
+
+    profileCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+        paddingHorizontal: 20,
+        paddingVertical: 24,
+        borderBottomWidth: 1,
+        borderBottomColor: '#2B2F36',
+    },
+    avatarSection: { position: 'relative' },
+    verifiedBadge: {
+        position: 'absolute', bottom: 0, right: -2,
+        backgroundColor: '#1E2026', borderRadius: 10, padding: 2,
+        borderWidth: 1, borderColor: '#2B2F36',
+    },
+    profileInfo: { flex: 1, gap: 6 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    username: { fontSize: 20, fontWeight: '800', color: '#1a1a1a' },
-    tierBadge: { backgroundColor: '#f0f0f0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-    tierBadgePro: { backgroundColor: '#F5C400' },
-    tierText: { fontSize: 10, fontWeight: '800', color: '#888' },
-    tierTextPro: { color: '#1a1a1a' },
-    memberSince: { fontSize: 13, color: '#aaa', fontWeight: '500' },
-    statsRow: { flexDirection: 'row', width: '100%', borderTopWidth: 1, borderTopColor: '#f5f5f5', paddingTop: 20 },
-    stat: { flex: 1, alignItems: 'center', gap: 4 },
-    statNum: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
-    statLabel: { fontSize: 12, color: '#aaa', fontWeight: '600' },
-    statDivider: { width: 1, height: 30, backgroundColor: '#f5f5f5' },
-    section: { marginTop: 32, paddingLeft: 20 },
-    sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1a1a1a', marginBottom: 16 },
-    tradeCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, width: 140, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
-    tradePair: { fontSize: 16, fontWeight: '800', color: '#1a1a1a', marginBottom: 4 },
-    tradeProfit: { fontSize: 18, fontWeight: '900', marginBottom: 12 },
-    tradeLikes: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    tradeLikeCount: { fontSize: 12, fontWeight: '700', color: '#aaa' },
-    followedUser: { alignItems: 'center', gap: 8, width: 80 },
-    followedName: { fontSize: 11, fontWeight: '700', color: '#666', width: '100%', textAlign: 'center' },
+    username: { fontSize: 18, fontWeight: '800', color: '#EAECEF' },
+    tierBadge: {
+        backgroundColor: '#1E2026',
+        paddingHorizontal: 8, paddingVertical: 3,
+        borderRadius: 4,
+        borderWidth: 1, borderColor: '#2B2F36',
+    },
+    tierBadgePro: { backgroundColor: 'rgba(240,185,11,0.15)', borderColor: '#F0B90B' },
+    tierText: { fontSize: 9, fontWeight: '800', color: '#848E9C' },
+    tierTextPro: { color: '#F0B90B' },
+    memberSince: { fontSize: 12, color: '#474D57', fontWeight: '500' },
+
+    statsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        gap: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#2B2F36',
+    },
+    statCard: {
+        backgroundColor: '#1E2026',
+        borderRadius: 8,
+        padding: 14,
+        alignItems: 'center',
+        gap: 4,
+        flex: 1,
+        minWidth: '28%',
+        borderWidth: 1,
+        borderColor: '#2B2F36',
+    },
+    statNum: { fontSize: 16, fontWeight: '900', color: '#EAECEF' },
+    statLabel: { fontSize: 10, fontWeight: '700', color: '#848E9C', textTransform: 'uppercase', letterSpacing: 0.5 },
+
+    section: { paddingTop: 24, paddingLeft: 20 },
+    sectionTitle: {
+        fontSize: 13, fontWeight: '800', color: '#848E9C',
+        textTransform: 'uppercase', letterSpacing: 1.2,
+        marginBottom: 14,
+    },
+    tradeCard: {
+        backgroundColor: '#1E2026',
+        borderRadius: 8,
+        padding: 14,
+        width: 130,
+        gap: 8,
+        borderWidth: 1,
+        borderColor: '#2B2F36',
+    },
+    tradeTypeBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 4, alignSelf: 'flex-start' },
+    tradeTypeBadgeText: { fontSize: 9, fontWeight: '800' },
+    tradePair: { fontSize: 15, fontWeight: '800', color: '#EAECEF' },
+    tradeProfit: { fontSize: 17, fontWeight: '900' },
+    tradeLikes: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    tradeLikeCount: { fontSize: 11, fontWeight: '700', color: '#848E9C' },
+
+    followedUser: { alignItems: 'center', gap: 8, width: 72 },
+    followedName: {
+        fontSize: 10, fontWeight: '700', color: '#848E9C',
+        width: '100%', textAlign: 'center',
+    },
 });

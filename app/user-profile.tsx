@@ -280,9 +280,9 @@ export default function UserProfile() {
                             >
                                 <View style={styles.postHeader}>
                                     <Text style={styles.postPair}>{post.currency_pair}</Text>
-                                    <View style={[styles.profitBadge, { backgroundColor: post.profit >= 0 ? '#ecfdf5' : '#fef2f2' }]}>
-                                        <Text style={[styles.postProfit, { color: post.profit >= 0 ? '#059669' : '#dc2626' }]}>
-                                            {post.profit >= 0 ? '+' : ''}{post.profit.toFixed(1)}%
+                                    <View style={[styles.profitBadge, { backgroundColor: (post.profit ?? 0) >= 0 ? '#ecfdf5' : '#fef2f2' }]}>
+                                        <Text style={[styles.postProfit, { color: (post.profit ?? 0) >= 0 ? '#059669' : '#dc2626' }]}>
+                                            {(post.profit ?? 0) >= 0 ? '+' : ''}{(post.profit ?? 0).toFixed(1)}%
                                         </Text>
                                     </View>
                                 </View>

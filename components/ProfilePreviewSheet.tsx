@@ -96,7 +96,7 @@ export default function ProfilePreviewSheet({
         try {
             const [userRes, forecastsRes, followerRes, followingRes, followStatusRes] = await Promise.all([
                 supabase.from('users').select('*').eq('id', uid).maybeSingle(),
-                supabase.from('forecasts').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(5),
+                supabase.from('trades').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(5),
                 supabase.from('follows').select('*', { count: 'exact', head: true }).eq('followed_id', uid),
                 supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', uid),
                 currentUserId
@@ -105,7 +105,7 @@ export default function ProfilePreviewSheet({
             ]);
 
             const forecasts = (forecastsRes.data || []) as Trade[];
-            const totalPL = forecasts.reduce((sum, t) => sum + (t.profit || 0), 0);
+            const totalPL = forecasts.reduce((sum, t) => sum + (t.money_value || 0), 0);
 
             setIsFollowing(!!(followStatusRes as any).data);
             setDetail({
@@ -125,7 +125,7 @@ export default function ProfilePreviewSheet({
     };
 
     const handleFollowToggle = async () => {
-        if (!currentUserId || !userId) return;
+        if (!currentUserId || !userId || currentUserId === userId) return;
         setFollowLoading(true);
         try {
             if (isFollowing) {
@@ -253,22 +253,20 @@ export default function ProfilePreviewSheet({
 
                             {detail.recentTrades.length > 0 && (
                                 <View style={styles.tradesSection}>
-                                    <Text style={styles.sectionTitle}>Recent Forecasts</Text>
-                                    {detail.recentTrades.map(forecast => (
-                                        <TouchableOpacity
-                                            key={forecast.id}
-                                            style={styles.tradeRow}
-                                            onPress={() => handleForecastPress(forecast)}
-                                        >
-                                            <View style={[styles.tradeTypeDot, { backgroundColor: (forecast.profit || 0) >= 0 ? '#059669' : '#dc2626' }]} />
+                                    <Text style={styles.sectionTitle}>Recent Trades</Text>
+                                    {detail.recentTrades.map(trade => (
+                                        <TouchableOpacity key={trade.id} style={styles.tradeRow} onPress={() => handleForecastPress(trade)}>
+                                            <View style={[styles.tradeTypeDot, {
+                                                backgroundColor: (trade.money_value || 0) >= 0 ? '#0ECB81' : '#F6465D'
+                                            }]} />
                                             <View style={{ flex: 1 }}>
-                                                <Text style={styles.tradeSymbol}>{forecast.currency_pair}</Text>
+                                                <Text style={styles.tradeSymbol}>{trade.symbol}</Text>
                                                 <Text style={styles.tradeDate}>
-                                                    {new Date(forecast.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                    {new Date(trade.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                 </Text>
                                             </View>
-                                            <Text style={[styles.tradePL, { color: (forecast.profit || 0) >= 0 ? '#059669' : '#dc2626' }]}>
-                                                {(forecast.profit || 0) >= 0 ? '+' : '-'}${Math.abs(forecast.profit || 0).toFixed(2)}
+                                            <Text style={[styles.tradePL, { color: (trade.money_value || 0) >= 0 ? '#0ECB81' : '#F6465D' }]}>
+                                                {(trade.money_value || 0) >= 0 ? '+' : '-'}${Math.abs(trade.money_value || 0).toFixed(2)}
                                             </Text>
                                         </TouchableOpacity>
                                     ))}

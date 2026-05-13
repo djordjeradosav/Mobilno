@@ -9,12 +9,15 @@ export async function syncUserToSupabase(
     username: string,
     email: string
 ) {
+    // Fallback to email prefix if username is missing
+    const finalUsername = (username || email.split('@')[0]).trim().toLowerCase();
+
     // We use upsert to handle cases where the user might already exist
     // (e.g., if they signed up but the sync failed previously)
     const { error } = await supabase.from('users').upsert(
         {
             id: userId,
-            username: username.trim().toLowerCase(),
+            username: finalUsername,
             email: email.trim().toLowerCase(),
             // member_since is handled by database default now()
             // subscription_tier is handled by database default 'free'

@@ -15,6 +15,44 @@ import {
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
+// ✅ Moved OUTSIDE Register so it's not recreated on every render
+type FieldProps = {
+    label: string;
+    icon: string;
+    value: string;
+    onChange: (v: string) => void;
+    placeholder: string;
+    secure?: boolean;
+    keyboard?: any;
+    toggleSecure?: () => void;
+};
+
+function Field({ label, icon, value, onChange, placeholder, secure, keyboard, toggleSecure }: FieldProps) {
+    return (
+        <View style={s.fieldWrap}>
+            <Text style={s.label}>{label}</Text>
+            <View style={s.inputRow}>
+                <FontAwesome name={icon as any} size={15} color="#848E9C" style={s.inputIcon} />
+                <TextInput
+                    style={s.input}
+                    placeholder={placeholder}
+                    placeholderTextColor="#474D57"
+                    value={value}
+                    onChangeText={onChange}
+                    autoCapitalize="none"
+                    secureTextEntry={secure}
+                    keyboardType={keyboard}
+                />
+                {toggleSecure && (
+                    <TouchableOpacity onPress={toggleSecure} style={s.eyeBtn}>
+                        <FontAwesome name={secure ? 'eye' : 'eye-slash'} size={15} color="#848E9C" />
+                    </TouchableOpacity>
+                )}
+            </View>
+        </View>
+    );
+}
+
 export default function Register() {
     const router = useRouter();
     const [username, setUsername] = useState('');
@@ -38,7 +76,12 @@ export default function Register() {
             const { data, error: authError } = await supabase.auth.signUp({
                 email: email.trim().toLowerCase(),
                 password,
-                options: { data: { username: username.trim().toLowerCase() } },
+                options: {
+                    data: {
+                        username: username.trim().toLowerCase(),
+                        full_name: username.trim(),
+                    }
+                },
             });
 
             if (authError) {
@@ -76,36 +119,6 @@ export default function Register() {
         }
     };
 
-    const Field = ({
-        label, icon, value, onChange, placeholder, secure, keyboard, toggleSecure,
-    }: {
-        label: string; icon: string; value: string;
-        onChange: (v: string) => void; placeholder: string;
-        secure?: boolean; keyboard?: any; toggleSecure?: () => void;
-    }) => (
-        <View style={s.fieldWrap}>
-            <Text style={s.label}>{label}</Text>
-            <View style={s.inputRow}>
-                <FontAwesome name={icon as any} size={15} color="#848E9C" style={s.inputIcon} />
-                <TextInput
-                    style={s.input}
-                    placeholder={placeholder}
-                    placeholderTextColor="#474D57"
-                    value={value}
-                    onChangeText={onChange}
-                    autoCapitalize="none"
-                    secureTextEntry={secure}
-                    keyboardType={keyboard}
-                />
-                {toggleSecure && (
-                    <TouchableOpacity onPress={toggleSecure} style={s.eyeBtn}>
-                        <FontAwesome name={secure ? 'eye' : 'eye-slash'} size={15} color="#848E9C" />
-                    </TouchableOpacity>
-                )}
-            </View>
-        </View>
-    );
-
     return (
         <KeyboardAvoidingView
             style={s.root}
@@ -128,11 +141,28 @@ export default function Register() {
 
                 {/* Fields */}
                 <View style={s.form}>
-                    <Field label="Username" icon="at" value={username} onChange={setUsername} placeholder="trader_name" />
-                    <Field label="Email" icon="envelope-o" value={email} onChange={setEmail} placeholder="you@email.com" keyboard="email-address" />
                     <Field
-                        label="Password" icon="lock" value={password} onChange={setPassword}
-                        placeholder="Min. 8 characters" secure={!showPassword}
+                        label="Username"
+                        icon="at"
+                        value={username}
+                        onChange={setUsername}
+                        placeholder="trader_name"
+                    />
+                    <Field
+                        label="Email"
+                        icon="envelope-o"
+                        value={email}
+                        onChange={setEmail}
+                        placeholder="you@email.com"
+                        keyboard="email-address"
+                    />
+                    <Field
+                        label="Password"
+                        icon="lock"
+                        value={password}
+                        onChange={setPassword}
+                        placeholder="Min. 8 characters"
+                        secure={!showPassword}
                         toggleSecure={() => setShowPassword(!showPassword)}
                     />
 
@@ -142,7 +172,8 @@ export default function Register() {
                             {agreeTerms && <FontAwesome name="check" size={10} color="#0B0E11" />}
                         </View>
                         <Text style={s.termsText}>
-                            I agree to the <Text style={s.termsLink}>Terms of Service</Text> and <Text style={s.termsLink}>Privacy Policy</Text>
+                            I agree to the <Text style={s.termsLink}>Terms of Service</Text> and{' '}
+                            <Text style={s.termsLink}>Privacy Policy</Text>
                         </Text>
                     </TouchableOpacity>
 

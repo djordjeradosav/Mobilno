@@ -18,6 +18,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getForexNews, NewsItem as AVNewsItem } from '@/lib/news';
 import ProfilePreviewSheet from '@/components/ProfilePreviewSheet';
+import TradeDetailsModal from '@/components/TradeDetailsModal';
+import { Trade } from '@/components/ForecastCard';
 
 type UserProfile = {
     id: string;
@@ -46,6 +48,9 @@ export default function Search() {
     const [loadingNews, setLoadingNews] = useState(true);
     const [previewUserId, setPreviewUserId] = useState<string | null>(null);
     const [sheetVisible, setSheetVisible] = useState(false);
+    const [tradeResults, setTradeResults] = useState<Trade[]>([]);
+    const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
+    const [tradeModalVisible, setTradeModalVisible] = useState(false);
 
     const fetchFollowing = useCallback(async () => {
         if (!user?.id) return;
@@ -76,21 +81,35 @@ export default function Search() {
         fetchAllUsers();
     }, [fetchFollowing, fetchNews, fetchAllUsers]);
 
+    const isTicker = (q: string) =>
+        /^[A-Z0-9]{2,6}$/.test(q.trim()) || q.trim().includes('/');
+
     const handleSearch = async (query: string) => {
         setSearchQuery(query);
-        if (query.trim().length < 1) { fetchAllUsers(); return; }
+        if (query.trim().length < 1) { fetchAllUsers(); setTradeResults([]); return; }
         setLoading(true);
-        const { data } = await supabase
-            .from('users')
-            .select('id, username, avatar_url, is_verified, subscription_tier')
-            .ilike('username', `%${query.trim()}%`)
-            .limit(12);
+        const [usersRes, tradesRes] = await Promise.all([
+            supabase
+                .from('users')
+                .select('id, username, avatar_url, is_verified, subscription_tier')
+                .or(`username.ilike.%${query.trim()}%,email.ilike.%${query.trim()}%`)
+                .limit(12),
+            isTicker(query)
+                ? supabase
+                    .from('trades')
+                    .select('*, users!trades_user_id_fkey(username, avatar_url, is_verified)')
+                    .ilike('symbol', `%${query.trim()}%`)
+                    .order('likes_count', { ascending: false })
+                    .limit(10)
+                : Promise.resolve({ data: [] }),
+        ]);
         setLoading(false);
-        if (data) setResults(data as UserProfile[]);
+        if (usersRes.data) setResults(usersRes.data as UserProfile[]);
+        if (tradesRes.data) setTradeResults(tradesRes.data as Trade[]);
     };
 
     const toggleFollow = async (targetId: string) => {
-        if (!user?.id) return;
+        if (!user?.id || user.id === targetId) return;
         const following = followingIds.has(targetId);
         setFollowingIds(prev => {
             const next = new Set(prev);
@@ -163,24 +182,55 @@ export default function Search() {
                                     </View>
                                     <Text style={s.userTier}>{item.subscription_tier} member</Text>
                                 </View>
-                                <TouchableOpacity
-                                    style={[s.followBtn, followingIds.has(item.id) && s.followingBtn]}
-                                    onPress={() => toggleFollow(item.id)}
-                                >
-                                    <Text style={[s.followBtnText, followingIds.has(item.id) && s.followingBtnText]}>
-                                        {followingIds.has(item.id) ? 'Following' : 'Follow'}
-                                    </Text>
-                                </TouchableOpacity>
+                                {user?.id !== item.id && (
+                                    <TouchableOpacity
+                                        style={[s.followBtn, followingIds.has(item.id) && s.followingBtn]}
+                                        onPress={() => toggleFollow(item.id)}
+                                    >
+                                        <Text style={[s.followBtnText, followingIds.has(item.id) && s.followingBtnText]}>
+                                            {followingIds.has(item.id) ? 'Following' : 'Follow'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
                             </TouchableOpacity>
                         ))}
                     </View>
                 )}
 
                 {/* No results */}
-                {searchQuery.length > 0 && results.length === 0 && !loading && (
+                {searchQuery.length > 0 && results.length === 0 && tradeResults.length === 0 && !loading && (
                     <View style={s.noResults}>
                         <Text style={s.noResultsIcon}>🔍</Text>
-                        <Text style={s.noResultsText}>No traders found for "{searchQuery}"</Text>
+                        <Text style={s.noResultsText}>No results found for "{searchQuery}"</Text>
+                    </View>
+                )}
+
+                {/* Trade results */}
+                {tradeResults.length > 0 && (
+                    <View style={s.section}>
+                        <Text style={s.sectionTitle}>Trades for {searchQuery.trim().toUpperCase()}</Text>
+                        {tradeResults.map(trade => (
+                            <TouchableOpacity
+                                key={trade.id}
+                                style={s.tradeCard}
+                                onPress={() => { setSelectedTrade(trade); setTradeModalVisible(true); }}
+                                activeOpacity={0.85}
+                            >
+                                <View style={s.tradeBadge}>
+                                    <Text style={s.tradeBadgeText}>{trade.symbol}</Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={s.tradeType}>{trade.trade_type ?? 'Trade'}</Text>
+                                    <Text style={s.tradeUser}>@{(trade as any).users?.username ?? ''}</Text>
+                                </View>
+                                <Text style={[
+                                    s.tradePL,
+                                    { color: (trade.money_value ?? 0) >= 0 ? '#0ECB81' : '#F6465D' }
+                                ]}>
+                                    {(trade.money_value ?? 0) >= 0 ? '+' : ''}{(trade.money_value ?? 0).toFixed(2)}$
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
                 )}
 
@@ -229,6 +279,15 @@ export default function Search() {
                 userId={previewUserId}
                 visible={sheetVisible}
                 onClose={() => setSheetVisible(false)}
+                currentUserId={user?.id}
+            />
+
+            <TradeDetailsModal
+                visible={tradeModalVisible}
+                forecast={selectedTrade}
+                onClose={() => setTradeModalVisible(false)}
+                onLike={() => { }}
+                isLiked={false}
                 currentUserId={user?.id}
             />
         </SafeAreaView>
@@ -324,4 +383,28 @@ const s = StyleSheet.create({
     tickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
     tickerBadge: { backgroundColor: '#1E2026', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#2B2F36' },
     tickerText: { fontSize: 9, fontWeight: '700', color: '#848E9C' },
+
+    // Trade card
+    tradeCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#161A1E',
+        padding: 14,
+        borderRadius: 0,
+        borderBottomWidth: 1,
+        borderBottomColor: '#2B2F36',
+        gap: 12,
+    },
+    tradeBadge: {
+        backgroundColor: '#1E2026',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#F0B90B',
+    },
+    tradeBadgeText: { fontSize: 12, fontWeight: '800', color: '#F0B90B' },
+    tradeType: { fontSize: 13, fontWeight: '700', color: '#EAECEF' },
+    tradeUser: { fontSize: 11, color: '#848E9C', fontWeight: '500', marginTop: 2 },
+    tradePL: { fontSize: 14, fontWeight: '900' },
 });

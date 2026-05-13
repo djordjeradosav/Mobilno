@@ -77,8 +77,8 @@ export default function UserProfile() {
     const fetchUserPosts = useCallback(async () => {
         if (!userId || typeof userId !== 'string') return;
         const { data, error } = await supabase
-            .from('forecasts')
-            .select('*, users!forecasts_user_id_fkey(username, avatar_url, is_verified)')
+            .from('trades')
+            .select('*, users!trades_user_id_fkey(username, avatar_url, is_verified)')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(20);
@@ -114,9 +114,9 @@ export default function UserProfile() {
         if (!currentUser?.id) return;
         const { data } = await supabase
             .from('likes')
-            .select('forecast_id')
+            .select('trade_id')
             .eq('user_id', currentUser.id);
-        if (data) setLikedIds(new Set(data.map(l => l.forecast_id)));
+        if (data) setLikedIds(new Set(data.map(l => l.trade_id)));
     }, [currentUser?.id]);
 
     const init = useCallback(async () => {
@@ -159,21 +159,21 @@ export default function UserProfile() {
         }
     };
 
-    const handleLike = async (forecastId: string) => {
+    const handleLike = async (tradeId: string) => {
         if (!currentUser?.id) return;
-        const isLiked = likedIds.has(forecastId);
+        const isLiked = likedIds.has(tradeId);
         setLikedIds(prev => {
             const next = new Set(prev);
-            if (isLiked) next.delete(forecastId);
-            else next.add(forecastId);
+            if (isLiked) next.delete(tradeId);
+            else next.add(tradeId);
             return next;
         });
         if (isLiked) {
-            await supabase.from('likes').delete().eq('user_id', currentUser.id).eq('forecast_id', forecastId);
-            await supabase.rpc('decrement_likes', { forecast_id: forecastId });
+            await supabase.from('likes').delete().eq('user_id', currentUser.id).eq('trade_id', tradeId);
+            await supabase.rpc('decrement_likes', { trade_id: tradeId });
         } else {
-            await supabase.from('likes').insert({ user_id: currentUser.id, forecast_id: forecastId });
-            await supabase.rpc('increment_likes', { forecast_id: forecastId });
+            await supabase.from('likes').insert({ user_id: currentUser.id, trade_id: tradeId });
+            await supabase.rpc('increment_likes', { trade_id: tradeId });
         }
         fetchUserPosts();
     };
@@ -279,14 +279,14 @@ export default function UserProfile() {
                                 activeOpacity={0.9}
                             >
                                 <View style={styles.postHeader}>
-                                    <Text style={styles.postPair}>{post.currency_pair}</Text>
-                                    <View style={[styles.profitBadge, { backgroundColor: (post.profit ?? 0) >= 0 ? '#ecfdf5' : '#fef2f2' }]}>
-                                        <Text style={[styles.postProfit, { color: (post.profit ?? 0) >= 0 ? '#059669' : '#dc2626' }]}>
-                                            {(post.profit ?? 0) >= 0 ? '+' : ''}{(post.profit ?? 0).toFixed(1)}%
+                                    <Text style={styles.postPair}>{post.symbol || post.currency_pair}</Text>
+                                    <View style={[styles.profitBadge, { backgroundColor: (post.money_value ?? 0) >= 0 ? '#ecfdf5' : '#fef2f2' }]}>
+                                        <Text style={[styles.postProfit, { color: (post.money_value ?? 0) >= 0 ? '#059669' : '#dc2626' }]}>
+                                            {(post.money_value ?? 0) >= 0 ? '+' : ''}{(post.money_value ?? 0).toFixed(2)}$
                                         </Text>
                                     </View>
                                 </View>
-                                <Text style={styles.postContent} numberOfLines={2}>{post.content}</Text>
+                                <Text style={styles.postContent} numberOfLines={2}>{post.notes || post.content}</Text>
                                 <View style={styles.postFooter}>
                                     <View style={styles.postStat}>
                                         <FontAwesome name="heart-o" size={12} color="#ef4444" />

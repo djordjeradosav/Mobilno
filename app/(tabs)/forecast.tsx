@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { getTradingViewImageUrl } from '@/components/ForecastCard';
+import { syncUserToSupabase } from '@/lib/syncUser';
 
 export default function CreateForecast() {
     const { user } = useAuth();
@@ -47,6 +48,13 @@ export default function CreateForecast() {
         }
 
         setLoading(true);
+
+        // Ensure user exists in public.users table
+        try {
+            await syncUserToSupabase(user.id, user.email?.split('@')[0] || 'trader', user.email || '');
+        } catch (e) {
+            console.error('User sync failed', e);
+        }
 
         const { error } = await supabase
             .from('trades')

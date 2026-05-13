@@ -20,6 +20,7 @@ import { Trade, getTradingViewImageUrl } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
 import Avatar from '@/components/Avatar';
 import ProfilePreviewSheet from '@/components/ProfilePreviewSheet';
+import { syncUserToSupabase } from '@/lib/syncUser';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -191,32 +192,22 @@ export default function Feed() {
 
     const fetchTrades = useCallback(async () => {
         if (!user?.id) return;
+
+        // Sync current user
+        try {
+            await syncUserToSupabase(user.id, user.email?.split('@')[0] || 'trader', user.email || '');
+        } catch (e) {
+            console.error('User sync failed', e);
+        }
+
         const { data, error } = await supabase
             .from('trades')
-            .select('*')
+            .select('*, users!trades_user_id_fkey(username, avatar_url, is_verified)')
             .order('created_at', { ascending: false })
             .limit(60);
 
         if (error) { console.error(error); return; }
-
-        const allTrades = data || [];
-        if (allTrades.length === 0) { setTrades([]); return; }
-
-        const userIds = [...new Set(allTrades.map(t => t.user_id))];
-        const { data: usersData } = await supabase
-            .from('users')
-            .select('id, username, avatar_url, is_verified')
-            .in('id', userIds);
-
-        const userMap = (usersData || []).reduce((acc: any, u) => {
-            acc[u.id] = { username: u.username, avatar_url: u.avatar_url, is_verified: u.is_verified };
-            return acc;
-        }, {});
-
-        setTrades(allTrades.map(t => ({
-            ...t,
-            users: userMap[t.user_id] || { username: 'Trader', avatar_url: null, is_verified: false },
-        })) as Trade[]);
+        setTrades((data || []) as Trade[]);
     }, [user?.id]);
 
     const loadAll = useCallback(async () => {

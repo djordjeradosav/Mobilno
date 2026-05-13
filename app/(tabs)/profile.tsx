@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Avatar from '@/components/Avatar';
+import { syncUserToSupabase } from '@/lib/syncUser';
 
 type ProfileData = {
     id: string;
@@ -66,6 +67,14 @@ export default function Profile() {
 
     const fetchProfile = useCallback(async () => {
         if (!user?.id) return;
+
+        // Sync current user
+        try {
+            await syncUserToSupabase(user.id, user.email?.split('@')[0] || 'trader', user.email || '');
+        } catch (e) {
+            console.error('User sync failed', e);
+        }
+
         const { data, error } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
         if (error) console.error('[fetchProfile]', error.message);
         if (data) setProfile(data as ProfileData);
@@ -75,26 +84,13 @@ export default function Profile() {
         if (!user?.id) return;
         const { data: tradesData, error } = await supabase
             .from('trades')
-            .select('*')
+            .select('*, users!trades_user_id_fkey(username, avatar_url, is_verified)')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
 
         if (error) { console.error('[fetchMyTrades]', error.message); return; }
-
-        if (tradesData && profile) {
-            const combined = tradesData.map(t => ({
-                ...t,
-                users: {
-                    username: profile.username,
-                    avatar_url: profile.avatar_url,
-                    is_verified: profile.is_verified,
-                },
-            }));
-            setMyTrades(combined as Trade[]);
-        } else if (tradesData) {
-            setMyTrades(tradesData as Trade[]);
-        }
-    }, [user?.id, profile]);
+        setMyTrades((tradesData || []) as Trade[]);
+    }, [user?.id]);
 
     const fetchFollowed = useCallback(async () => {
         if (!user?.id) return;

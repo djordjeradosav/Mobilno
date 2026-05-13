@@ -19,6 +19,8 @@ import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { Trade, getTradingViewImageUrl } from './ForecastCard';
 import Avatar from './Avatar';
+import { syncUserToSupabase } from '@/lib/syncUser';
+import { useAuth } from '@/lib/auth';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const SHEET_H = SCREEN_H * 0.85;
@@ -59,9 +61,9 @@ export default function TradeDetailsModal({
         if (!forecast?.id) return;
         const { data, error } = await supabase
             .from('comments')
-            .select('*, users(username, avatar_url, is_verified)')
-            .eq('forecast_id', forecast.id)
-            .order('created_at', { ascending: false });
+            .select('*, users!comments_user_id_fkey(username, avatar_url, is_verified)')
+            .eq('trade_id', forecast.id)
+            .order('created_at', { ascending: true });
 
         if (!error && data) setComments(data);
     }, [forecast?.id]);
@@ -88,22 +90,36 @@ export default function TradeDetailsModal({
         }
     }, [visible, fetchComments, forecast?.notes, forecast?.symbol, forecast?.money_value, forecast?.trade_type, forecast?.entry_price, forecast?.exit_price]);
 
+    const { user: authUser } = useAuth();
+
     const handleAddComment = async () => {
         if (!newComment.trim() || !currentUserId || !forecast?.id) return;
         setSubmittingComment(true);
+
+        // Ensure user exists in public.users table
+        if (authUser) {
+            try {
+                await syncUserToSupabase(authUser.id, authUser.email?.split('@')[0] || 'trader', authUser.email || '');
+            } catch (e) {
+                console.error('User sync failed', e);
+            }
+        }
+
         const { error } = await supabase
             .from('comments')
             .insert({
-                forecast_id: forecast.id,
+                trade_id: forecast.id,
                 user_id: currentUserId,
                 content: newComment.trim()
             });
 
         if (error) {
-            Alert.alert('Error', 'Could not post comment');
+            Alert.alert('Error', `Could not post comment: ${error.message}`);
         } else {
+            await supabase.rpc('increment_comments', { trade_id: forecast.id });
             setNewComment('');
             fetchComments();
+            if (onUpdate) onUpdate();
         }
         setSubmittingComment(false);
     };
@@ -111,34 +127,37 @@ export default function TradeDetailsModal({
     const handleUpdateTrade = async () => {
         if (!forecast?.id) return;
         const updateData: any = {
-            content: editContent.trim(),
-            currency_pair: editSymbol.trim().toUpperCase() || forecast.currency_pair,
-            profit: editMoneyValue ? Number(editMoneyValue) : forecast.profit,
+            notes: editContent.trim(),
+            symbol: editSymbol.trim().toUpperCase(),
+            money_value: editMoneyValue ? Number(editMoneyValue) : forecast.money_value,
+            trade_type: editTradeType,
+            entry_price: editEntryPrice ? Number(editEntryPrice) : null,
+            exit_price: editExitPrice ? Number(editExitPrice) : null,
         };
 
         const { error } = await supabase
-            .from('forecasts')
+            .from('trades')
             .update(updateData)
             .eq('id', forecast.id);
 
         if (error) {
-            Alert.alert('Error', 'Could not update forecast');
+            Alert.alert('Error', 'Could not update trade');
         } else {
             setIsEditing(false);
             if (onUpdate) onUpdate();
-            Alert.alert('Success', 'Forecast updated');
+            Alert.alert('Success', 'Trade updated');
         }
     };
 
     const handleDeleteTrade = async () => {
         if (!forecast?.id) return;
-        Alert.alert('Delete Forecast', 'Are you sure you want to delete this forecast?', [
+        Alert.alert('Delete Trade', 'Are you sure you want to delete this trade?', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Delete',
                 style: 'destructive',
                 onPress: async () => {
-                    const { error } = await supabase.from('forecasts').delete().eq('id', forecast.id);
+                    const { error } = await supabase.from('trades').delete().eq('id', forecast.id);
                     if (error) Alert.alert('Error', 'Could not delete forecast');
                     else {
                         onClose();
@@ -296,20 +315,20 @@ export default function TradeDetailsModal({
                                     </View>
                                 </View>
 
-                                {forecast.notes || forecast.content ? (
+                                {forecast.notes ? (
                                     <View style={styles.notesSection}>
                                         <Text style={styles.sectionLabel}>Analysis</Text>
-                                        <Text style={styles.notesText}>{forecast.notes || forecast.content}</Text>
+                                        <Text style={styles.notesText}>{forecast.notes}</Text>
                                     </View>
                                 ) : null}
 
-                                {forecast.tradingview_link || forecast.chart_image_url ? (
+                                {forecast.chart_image_url ? (
                                     <View style={styles.chartSection}>
                                         <Text style={styles.sectionLabel}>Chart</Text>
                                         <Image
-                                            source={{ uri: getTradingViewImageUrl(forecast.tradingview_link || forecast.chart_image_url || '') || '' }}
+                                            source={{ uri: getTradingViewImageUrl(forecast.chart_image_url) || '' }}
                                             style={styles.chartImage}
-                                            resizeMode="contain"
+                                            resizeMode="cover"
                                         />
                                     </View>
                                 ) : null}
@@ -398,7 +417,7 @@ const styles = StyleSheet.create({
     sectionLabel: { fontSize: 14, fontWeight: '800', color: '#718096', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
     notesText: { fontSize: 16, color: '#4A5568', lineHeight: 24 },
     chartSection: { marginBottom: 24 },
-    chartImage: { width: '100%', height: 200, borderRadius: 16, backgroundColor: '#F7FAFC' },
+    chartImage: { width: '100%', height: 220, borderRadius: 12, backgroundColor: '#1E2026' },
     actions: { flexDirection: 'row', gap: 16, paddingVertical: 16, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#EDF2F7', marginBottom: 24 },
     actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F7FAFC', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
     actionBtnActive: { backgroundColor: '#FFF5F5' },

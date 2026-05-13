@@ -84,15 +84,16 @@ export default function PostForecast() {
             }
         }
 
-        // Insert directly into forecasts table
+        // Insert directly into trades table
         const { error } = await supabase
-            .from('forecasts')
+            .from('trades')
             .insert({
                 user_id: user.id,
-                currency_pair: pair,
-                profit: p,
-                content: content.trim(),
+                symbol: pair,
+                money_value: p,
+                notes: content.trim(),
                 chart_image_url: chartUrl,
+                trade_type: p >= 0 ? 'Buy' : 'Sell', // Defaulting based on profit for legacy compatibility
             });
         setSubmitting(false);
 

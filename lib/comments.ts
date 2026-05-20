@@ -1,3 +1,10 @@
+/**
+ * Komentari na trade-ove — sve preko PostgREST REST API-ja.
+ *
+ * listComments  → GET  /rest/v1/comments?trade_id=eq...&select=*,users(...)
+ * addComment    → POST /rest/v1/comments (+ join u select)
+ * deleteComment → DELETE /rest/v1/comments?id=eq...
+ */
 import { supabase } from './supabase';
 
 export type Comment = {

@@ -1,10 +1,13 @@
 import { Platform } from 'react-native';
 
 /**
- * ZERO-DEPENDENCY STORAGE
- * This bypasses the "Native module is null" error by avoiding 
- * @react-native-async-storage/async-storage entirely on native platforms
- * during development.
+ * Lokalno skladište za Supabase auth token (i eventualno druge ključeve).
+ *
+ * - Web: localStorage (perzistentno između refresh-a)
+ * - Native (dev): in-memory Map — sesija se gubi posle restarta app-a
+ *
+ * Koristi ga supabaseRest.ts (AUTH_STORAGE_KEY).
+ * Za produkciju na telefonu preporuka: @react-native-async-storage/async-storage
  */
 
 class MemoryStorage {

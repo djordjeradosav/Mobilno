@@ -3,10 +3,13 @@ import { supabase } from "./supabase";
 const BUCKET = "forecasts";
 
 /**
- * Upload an image (from expo-image-picker) to Supabase Storage and return the
- * public URL, or null on failure.
+ * Upload slike chart-a u Supabase Storage preko REST API-ja.
  *
- * `uri` may be a `file://`, `data:`, or `blob:` URI depending on platform.
+ * 1) uri (expo-image-picker) → fetch → Blob
+ * 2) POST /storage/v1/object/forecasts/{userId}/{timestamp}.jpg
+ * 3) Vraća javni URL: /storage/v1/object/public/forecasts/...
+ *
+ * Bucket "forecasts" mora postojati i biti public u Supabase Dashboard.
  */
 export async function uploadForecastImage(
     uri: string,

@@ -1,8 +1,10 @@
 import { supabase } from './supabase';
 
 /**
- * Syncs a newly authenticated user to the public.users table.
- * This is called after a successful sign-up.
+ * Sinhronizuje Auth korisnika u public.users tabelu (REST upsert).
+ *
+ * Poziva se posle registracije / prvog posta da profil postoji u bazi.
+ * REST: POST /rest/v1/users?on_conflict=id + Prefer: resolution=merge-duplicates
  */
 export async function syncUserToSupabase(
     userId: string,

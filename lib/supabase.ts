@@ -1,14 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
-import { universalStorage } from './storage';
-
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        storage: universalStorage,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-    },
-});
+/**
+ * Ulazna tačka za Supabase u celoj aplikaciji.
+ *
+ * Umesto @supabase/supabase-js, sve ide kroz REST (lib/supabaseRest.ts).
+ * Import uvek iz ovog fajla:
+ *
+ *   import { supabase } from '@/lib/supabase';
+ *
+ * Env: EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY
+ */
+export { supabase, type Session, type User } from './supabaseRest';

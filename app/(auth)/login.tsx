@@ -79,7 +79,29 @@ export default function Login() {
 
         {/* Password */}
         <View style={s.fieldWrap}>
-          <Text style={s.label}>Password</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={s.label}>Password</Text>
+            <TouchableOpacity onPress={() => {
+              if (!email.trim()) {
+                Alert.alert('Email required', 'Please enter your email address to reset password.');
+                return;
+              }
+              Alert.alert(
+                'Reset Password',
+                `Send a password reset link to ${email.trim()}?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Send', onPress: async () => {
+                    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+                    if (error) Alert.alert('Error', error.message);
+                    else Alert.alert('Success', 'Check your email for the reset link.');
+                  }}
+                ]
+              );
+            }}>
+              <Text style={[s.label, { color: '#F0B90B', textTransform: 'none' }]}>Forgot password?</Text>
+            </TouchableOpacity>
+          </View>
           <View style={s.inputRow}>
             <FontAwesome name="lock" size={15} color="#848E9C" style={s.inputIcon} />
             <TextInput

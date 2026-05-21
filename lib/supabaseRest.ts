@@ -378,6 +378,44 @@ const auth = {
         notifyAuth(null, 'SIGNED_OUT');
         return { error: null };
     },
+
+    /**
+     * Slanje mejla za reset lozinke.
+     * POST /auth/v1/recover
+     */
+    async resetPasswordForEmail(email: string, options?: { redirectTo?: string }): Promise<{ data: unknown; error: ApiError | null }> {
+        try {
+            const res = await fetch(`${supabaseUrl}/auth/v1/recover`, {
+                method: 'POST',
+                headers: baseHeaders(),
+                body: JSON.stringify({ email, redirectTo: options?.redirectTo }),
+            });
+            const body = await parseJson(res);
+            if (!res.ok) return { data: null, error: toError(res, body) };
+            return { data: body, error: null };
+        } catch (e: unknown) {
+            return { data: null, error: { message: (e as Error).message ?? 'Unknown error' } };
+        }
+    },
+
+    /**
+     * Ažuriranje korisničkih podataka (npr. lozinke).
+     * PUT /auth/v1/user
+     */
+    async updateUser(attributes: { password?: string; data?: Record<string, unknown> }): Promise<{ data: { user: User | null }; error: ApiError | null }> {
+        try {
+            const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+                method: 'PUT',
+                headers: await authHeaders(),
+                body: JSON.stringify(attributes),
+            });
+            const body = await parseJson(res);
+            if (!res.ok) return { data: { user: null }, error: toError(res, body) };
+            return { data: { user: body as User }, error: null };
+        } catch (e: unknown) {
+            return { data: { user: null }, error: { message: (e as Error).message ?? 'Unknown error' } };
+        }
+    },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

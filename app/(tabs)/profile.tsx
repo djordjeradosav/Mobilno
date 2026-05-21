@@ -207,9 +207,14 @@ export default function Profile() {
                 {/* Header */}
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Profile</Text>
-                    <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-                        <FontAwesome name="sign-out" size={18} color="#848E9C" />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 16 }}>
+                        <TouchableOpacity style={styles.signOutBtn} onPress={() => router.push('/settings')}>
+                            <FontAwesome name="cog" size={18} color="#848E9C" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
+                            <FontAwesome name="sign-out" size={18} color="#848E9C" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 <View style={styles.dividerLine} />

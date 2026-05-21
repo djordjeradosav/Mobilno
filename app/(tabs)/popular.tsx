@@ -181,13 +181,13 @@ export default function Feed() {
     const fetchFollowing = useCallback(async () => {
         if (!user?.id) return;
         const { data } = await supabase.from('follows').select('followed_id').eq('follower_id', user.id);
-        if (data) setFollowingIds(new Set(data.map(f => f.followed_id)));
+        if (data) setFollowingIds(new Set(data.map((f: { followed_id: string }) => f.followed_id)));
     }, [user?.id]);
 
     const fetchLikes = useCallback(async () => {
         if (!user?.id) return;
         const { data } = await supabase.from('likes').select('trade_id').eq('user_id', user.id);
-        if (data) setLikedIds(new Set(data.map(l => l.trade_id)));
+        if (data) setLikedIds(new Set(data.map((l: { trade_id: string }) => l.trade_id)));
     }, [user?.id]);
 
     const fetchTrades = useCallback(async () => {

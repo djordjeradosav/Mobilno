@@ -55,7 +55,7 @@ export default function Search() {
     const fetchFollowing = useCallback(async () => {
         if (!user?.id) return;
         const { data } = await supabase.from('follows').select('followed_id').eq('follower_id', user.id);
-        if (data) setFollowingIds(new Set(data.map(f => f.followed_id)));
+        if (data) setFollowingIds(new Set(data.map((f: { followed_id: string }) => f.followed_id)));
     }, [user?.id]);
 
     const fetchNews = useCallback(async () => {

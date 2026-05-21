@@ -116,7 +116,7 @@ export default function UserProfile() {
             .from('likes')
             .select('trade_id')
             .eq('user_id', currentUser.id);
-        if (data) setLikedIds(new Set(data.map(l => l.trade_id)));
+        if (data) setLikedIds(new Set(data.map((l: { trade_id: string }) => l.trade_id)));
     }, [currentUser?.id]);
 
     const init = useCallback(async () => {

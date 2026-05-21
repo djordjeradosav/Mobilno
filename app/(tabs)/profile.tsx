@@ -17,6 +17,8 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors from '@/constants/Colors';
 import Avatar from '@/components/Avatar';
 import { syncUserToSupabase } from '@/lib/syncUser';
 
@@ -53,6 +55,8 @@ function StatCard({ label, value, color }: { label: string; value: string | numb
 export default function Profile() {
     const { user, signOut } = useAuth();
     const router = useRouter();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
 
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [myTrades, setMyTrades] = useState<Trade[]>([]);
@@ -177,7 +181,7 @@ export default function Profile() {
 
     if (loading) {
         return (
-            <View style={styles.loader}>
+            <View style={[styles.loader, { backgroundColor: Colors[colorScheme].background }]}>
                 <ActivityIndicator size="large" color="#F0B90B" />
             </View>
         );
@@ -191,7 +195,7 @@ export default function Profile() {
         : 0;
 
     return (
-        <SafeAreaView style={styles.root} edges={['top']}>
+        <SafeAreaView style={[styles.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
             <ScrollView
                 style={styles.scroll}
                 showsVerticalScrollIndicator={false}
@@ -206,7 +210,7 @@ export default function Profile() {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Profile</Text>
+                    <Text style={[styles.headerTitle, { color: Colors[colorScheme].text }]}>Profile</Text>
                     <View style={{ flexDirection: 'row', gap: 16 }}>
                         <TouchableOpacity style={styles.signOutBtn} onPress={() => router.push('/settings')}>
                             <FontAwesome name="cog" size={18} color="#848E9C" />
@@ -217,10 +221,10 @@ export default function Profile() {
                     </View>
                 </View>
 
-                <View style={styles.dividerLine} />
+                <View style={[styles.dividerLine, { backgroundColor: isDark ? '#1E2026' : '#E0E0E0' }]} />
 
                 {/* Profile card */}
-                <View style={styles.profileCard}>
+                <View style={[styles.profileCard, { backgroundColor: isDark ? '#161A1E' : '#F9F9F9', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}>
                     <View style={styles.avatarSection}>
                         <Avatar url={profile?.avatar_url} username={displayName} size={72} />
                         {profile?.is_verified && (
@@ -231,7 +235,7 @@ export default function Profile() {
                     </View>
                     <View style={styles.profileInfo}>
                         <View style={styles.nameRow}>
-                            <Text style={styles.username}>@{displayName}</Text>
+                            <Text style={[styles.username, { color: Colors[colorScheme].text }]}>@{displayName}</Text>
                             <View style={[
                                 styles.tierBadge,
                                 profile?.subscription_tier === 'pro' && styles.tierBadgePro

@@ -16,6 +16,8 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors from '@/constants/Colors';
 import { Trade, getTradingViewImageUrl } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
 import Avatar from '@/components/Avatar';
@@ -54,6 +56,8 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
     const scaleAnim = useRef(new Animated.Value(1)).current;
     const user = trade.users;
     const isProfitable = (trade.money_value || 0) >= 0;
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
 
     const handleLikePress = () => {
         Animated.sequence([
@@ -64,14 +68,18 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
     };
 
     return (
-        <TouchableOpacity style={s.card} onPress={() => onPress(trade)} activeOpacity={0.95}>
+        <TouchableOpacity 
+            style={[s.card, { backgroundColor: isDark ? '#161A1E' : '#FFFFFF', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]} 
+            onPress={() => onPress(trade)} 
+            activeOpacity={0.95}
+        >
             {/* Header */}
             <View style={s.cardHeader}>
                 <TouchableOpacity style={s.userRow} onPress={() => onAvatarPress(trade.user_id)}>
                     <Avatar url={user?.avatar_url} username={user?.username ?? '?'} size={38} />
                     <View style={s.userMeta}>
                         <View style={s.nameRow}>
-                            <Text style={s.userName}>@{user?.username ?? 'trader'}</Text>
+                            <Text style={[s.userName, { color: isDark ? '#EAECEF' : '#111' }]}>@{user?.username ?? 'trader'}</Text>
                             {user?.is_verified && (
                                 <MaterialIcons name="verified" size={12} color="#F0B90B" />
                             )}
@@ -108,7 +116,7 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
 
             {/* Notes */}
             {!!trade.notes && (
-                <Text style={s.notes} numberOfLines={3}>{trade.notes}</Text>
+                <Text style={[s.notes, { color: isDark ? '#B7BDC6' : '#444' }]} numberOfLines={3}>{trade.notes}</Text>
             )}
 
             {/* Chart */}
@@ -166,6 +174,8 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
 export default function Feed() {
     const { user } = useAuth();
     const router = useRouter();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
 
     const [trades, setTrades] = useState<Trade[]>([]);
     const [loading, setLoading] = useState(true);
@@ -272,17 +282,17 @@ export default function Feed() {
 
     if (loading) {
         return (
-            <View style={s.loader}>
+            <View style={[s.loader, { backgroundColor: Colors[colorScheme].background }]}>
                 <ActivityIndicator size="large" color="#F0B90B" />
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
+        <SafeAreaView style={[s.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
             {/* Header */}
             <View style={s.header}>
-                <Text style={s.logo}>Ticksnap</Text>
+                <Text style={[s.logo, { color: isDark ? '#F0B90B' : '#D4A017' }]}>Ticksnap</Text>
                 <TouchableOpacity
                     style={s.postBtn}
                     onPress={() => router.push('/(tabs)/forecast')}
@@ -300,7 +310,11 @@ export default function Feed() {
                         style={[s.filterTab, filter === f.key && s.filterTabActive]}
                         onPress={() => setFilter(f.key)}
                     >
-                        <Text style={[s.filterLabel, filter === f.key && s.filterLabelActive]}>
+                        <Text style={[
+                            s.filterLabel, 
+                            { color: isDark ? '#848E9C' : '#999' },
+                            filter === f.key && s.filterLabelActive
+                        ]}>
                             {f.label}
                         </Text>
                         {filter === f.key && <View style={s.filterUnderline} />}
@@ -308,7 +322,7 @@ export default function Feed() {
                 ))}
             </View>
 
-            <View style={s.dividerLine} />
+            <View style={[s.dividerLine, { backgroundColor: isDark ? '#1E2026' : '#E0E0E0' }]} />
 
             {/* Feed */}
             <FlatList

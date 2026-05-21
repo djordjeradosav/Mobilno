@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors from '@/constants/Colors';
 import { Trade, getTradingViewImageUrl } from './ForecastCard';
 import Avatar from './Avatar';
 import { syncUserToSupabase } from '@/lib/syncUser';
@@ -44,6 +46,8 @@ export default function TradeDetailsModal({
     currentUserId,
     onUpdate,
 }: Props) {
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
     const slideAnim = useRef(new Animated.Value(SHEET_H)).current;
     const backdropAnim = useRef(new Animated.Value(0)).current;
     const [isEditing, setIsEditing] = useState(false);
@@ -195,9 +199,15 @@ export default function TradeDetailsModal({
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 style={{ flex: 1, justifyContent: 'flex-end' }}
             >
-                <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+                <Animated.View style={[
+                    styles.sheet, 
+                    { 
+                        transform: [{ translateY: slideAnim }],
+                        backgroundColor: isDark ? '#161A1E' : '#FFFFFF'
+                    }
+                ]}>
                     <View {...panResponder.panHandlers} style={styles.handleArea}>
-                        <View style={styles.handle} />
+                        <View style={[styles.handle, { backgroundColor: isDark ? '#2B2F36' : '#E0E0E0' }]} />
                     </View>
 
                     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -205,7 +215,7 @@ export default function TradeDetailsModal({
                             <Avatar url={user?.avatar_url} username={user?.username ?? '?'} size={44} />
                             <View style={styles.headerInfo}>
                                 <View style={styles.usernameRow}>
-                                    <Text style={styles.username}>{user?.username ?? 'Trader'}</Text>
+                                    <Text style={[styles.username, { color: Colors[colorScheme].text }]}>{user?.username ?? 'Trader'}</Text>
                                     {user?.is_verified && <MaterialIcons name="verified" size={14} color="#F5C400" />}
                                 </View>
                                 <Text style={styles.timestamp}>{new Date(forecast.created_at).toLocaleDateString()}</Text>
@@ -288,14 +298,14 @@ export default function TradeDetailsModal({
                             <>
                                 <View style={styles.mainInfo}>
                                     <View style={styles.pairRow}>
-                                        <Text style={styles.pairText}>{forecast.symbol || forecast.currency_pair}</Text>
+                                        <Text style={[styles.pairText, { color: Colors[colorScheme].text }]}>{forecast.symbol || forecast.currency_pair}</Text>
                                         <View style={[styles.typeBadge, { backgroundColor: isProfitable ? '#E6FFFA' : '#FFF5F5' }]}>
                                             <Text style={[styles.typeText, { color: isProfitable ? '#319795' : '#E53E3E' }]}>
                                                 {isProfitable ? 'PROFIT' : 'LOSS'}
                                             </Text>
                                         </View>
                                     </View>
-                                    <Text style={styles.profitText}>
+                                    <Text style={[styles.profitText, { color: isProfitable ? '#0ECB81' : '#F6465D' }]}>
                                         {isProfitable ? '+' : ''}{forecast.money_value || forecast.profit || 0}$
                                     </Text>
                                 </View>
@@ -303,15 +313,15 @@ export default function TradeDetailsModal({
                                 <View style={styles.detailsGrid}>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Type</Text>
-                                        <Text style={styles.detailValue}>{forecast.trade_type || 'N/A'}</Text>
+                                        <Text style={[styles.detailValue, { color: Colors[colorScheme].text }]}>{forecast.trade_type || 'N/A'}</Text>
                                     </View>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Entry</Text>
-                                        <Text style={styles.detailValue}>${forecast.entry_price || '0.00'}</Text>
+                                        <Text style={[styles.detailValue, { color: Colors[colorScheme].text }]}>${forecast.entry_price || '0.00'}</Text>
                                     </View>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Exit</Text>
-                                        <Text style={styles.detailValue}>${forecast.exit_price || '0.00'}</Text>
+                                        <Text style={[styles.detailValue, { color: Colors[colorScheme].text }]}>${forecast.exit_price || '0.00'}</Text>
                                     </View>
                                 </View>
 

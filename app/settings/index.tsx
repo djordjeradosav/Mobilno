@@ -12,8 +12,9 @@ import {
     TextInput,
     TouchableOpacity,
     View,
-    useColorScheme as useRNColorScheme,
 } from 'react-native';
+import { useTheme } from '@/components/ThemeContext';
+import Colors from '@/constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
@@ -21,7 +22,7 @@ import { useAuth } from '@/lib/auth';
 export default function Settings() {
     const router = useRouter();
     const { user } = useAuth();
-    const systemColorScheme = useRNColorScheme();
+    const { theme, setTheme, colorScheme } = useTheme();
     
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -61,12 +62,15 @@ export default function Settings() {
     };
 
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
+        <SafeAreaView style={[s.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
             <View style={s.header}>
-                <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-                    <FontAwesome name="arrow-left" size={16} color="#848E9C" />
+                <TouchableOpacity 
+                    style={[s.backBtn, { backgroundColor: colorScheme === 'dark' ? '#1E2026' : '#F5F5F5', borderColor: colorScheme === 'dark' ? '#2B2F36' : '#E0E0E0' }]} 
+                    onPress={() => router.back()}
+                >
+                    <FontAwesome name="arrow-left" size={16} color={colorScheme === 'dark' ? '#848E9C' : '#666'} />
                 </TouchableOpacity>
-                <Text style={s.headerTitle}>Settings</Text>
+                <Text style={[s.headerTitle, { color: Colors[colorScheme].text }]}>Settings</Text>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -74,16 +78,30 @@ export default function Settings() {
                 {/* Theme Section */}
                 <View style={s.section}>
                     <Text style={s.sectionTitle}>Appearance</Text>
-                    <View style={s.settingRow}>
+                    <View style={[s.settingRow, { backgroundColor: colorScheme === 'dark' ? '#1E2026' : '#F9F9F9', borderColor: colorScheme === 'dark' ? '#2B2F36' : '#E0E0E0' }]}>
                         <View style={s.settingInfo}>
-                            <FontAwesome name="moon-o" size={18} color="#F0B90B" style={s.settingIcon} />
-                            <Text style={s.settingLabel}>Theme</Text>
+                            <FontAwesome 
+                                name={colorScheme === 'dark' ? "moon-o" : "sun-o"} 
+                                size={18} 
+                                color="#F0B90B" 
+                                style={s.settingIcon} 
+                            />
+                            <Text style={[s.settingLabel, { color: Colors[colorScheme].text }]}>Theme</Text>
                         </View>
-                        <TouchableOpacity style={s.themeToggle}>
-                            <Text style={s.themeText}>System ({systemColorScheme})</Text>
+                        <TouchableOpacity 
+                            style={[s.themeToggle, { backgroundColor: colorScheme === 'dark' ? '#2B2F36' : '#E0E0E0' }]}
+                            onPress={() => {
+                                if (theme === 'system') setTheme('light');
+                                else if (theme === 'light') setTheme('dark');
+                                else setTheme('system');
+                            }}
+                        >
+                            <Text style={s.themeText}>
+                                {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                            </Text>
                         </TouchableOpacity>
                     </View>
-                    <Text style={s.helperText}>Theme switching is currently following your system settings.</Text>
+                    <Text style={s.helperText}>Tap to switch between Light, Dark, and System theme.</Text>
                 </View>
 
                 <View style={s.divider} />
@@ -91,15 +109,15 @@ export default function Settings() {
                 {/* Password Reset Section */}
                 <View style={s.section}>
                     <Text style={s.sectionTitle}>Security</Text>
-                    <Text style={s.subTitle}>Change Password</Text>
+                    <Text style={[s.subTitle, { color: Colors[colorScheme].text }]}>Change Password</Text>
                     
                     <View style={s.fieldWrap}>
-                        <View style={s.inputRow}>
+                        <View style={[s.inputRow, { backgroundColor: colorScheme === 'dark' ? '#1E2026' : '#F9F9F9', borderColor: colorScheme === 'dark' ? '#2B2F36' : '#E0E0E0' }]}>
                             <FontAwesome name="lock" size={15} color="#848E9C" style={s.inputIcon} />
                             <TextInput
-                                style={s.input}
+                                style={[s.input, { color: Colors[colorScheme].text }]}
                                 placeholder="New Password"
-                                placeholderTextColor="#474D57"
+                                placeholderTextColor={colorScheme === 'dark' ? "#474D57" : "#999"}
                                 value={newPassword}
                                 onChangeText={setNewPassword}
                                 secureTextEntry={!showPassword}
@@ -112,12 +130,12 @@ export default function Settings() {
                     </View>
 
                     <View style={s.fieldWrap}>
-                        <View style={s.inputRow}>
+                        <View style={[s.inputRow, { backgroundColor: colorScheme === 'dark' ? '#1E2026' : '#F9F9F9', borderColor: colorScheme === 'dark' ? '#2B2F36' : '#E0E0E0' }]}>
                             <FontAwesome name="lock" size={15} color="#848E9C" style={s.inputIcon} />
                             <TextInput
-                                style={s.input}
+                                style={[s.input, { color: Colors[colorScheme].text }]}
                                 placeholder="Confirm New Password"
-                                placeholderTextColor="#474D57"
+                                placeholderTextColor={colorScheme === 'dark' ? "#474D57" : "#999"}
                                 value={confirmPassword}
                                 onChangeText={setConfirmPassword}
                                 secureTextEntry={!showPassword}
@@ -142,11 +160,11 @@ export default function Settings() {
                     <Text style={s.sectionTitle}>Account</Text>
                     <View style={s.infoRow}>
                         <Text style={s.infoLabel}>Email</Text>
-                        <Text style={s.infoValue}>{user?.email}</Text>
+                        <Text style={[s.infoValue, { color: Colors[colorScheme].text }]}>{user?.email}</Text>
                     </View>
                     <View style={s.infoRow}>
                         <Text style={s.infoLabel}>User ID</Text>
-                        <Text style={s.infoValue} numberOfLines={1}>{user?.id}</Text>
+                        <Text style={[s.infoValue, { color: Colors[colorScheme].text }]} numberOfLines={1}>{user?.id}</Text>
                     </View>
                 </View>
             </ScrollView>

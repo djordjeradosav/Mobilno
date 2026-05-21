@@ -16,6 +16,8 @@ import {
     Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors from '@/constants/Colors';
 import { useRouter } from 'expo-router';
 import { getTradingViewImageUrl } from '@/components/ForecastCard';
 import { syncUserToSupabase } from '@/lib/syncUser';
@@ -23,6 +25,8 @@ import { syncUserToSupabase } from '@/lib/syncUser';
 export default function CreateForecast() {
     const { user } = useAuth();
     const router = useRouter();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
 
     const [symbol, setSymbol] = useState('');
     const [moneyValue, setMoneyValue] = useState('');
@@ -89,20 +93,23 @@ export default function CreateForecast() {
     };
 
     return (
-        <SafeAreaView style={styles.root} edges={['top']}>
+        <SafeAreaView style={[styles.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+                <TouchableOpacity 
+                    style={[styles.backBtn, { backgroundColor: isDark ? '#1E2026' : '#F5F5F5', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]} 
+                    onPress={() => router.back()}
+                >
                     <FontAwesome name="arrow-left" size={16} color="#848E9C" />
                 </TouchableOpacity>
                 <View>
-                    <Text style={styles.headerTitle}>New Trade</Text>
+                    <Text style={[styles.headerTitle, { color: Colors[colorScheme].text }]}>New Trade</Text>
                     <Text style={styles.headerSub}>Add a trade to your journal</Text>
                 </View>
                 <View style={{ width: 40 }} />
             </View>
 
-            <View style={styles.dividerLine} />
+            <View style={[styles.dividerLine, { backgroundColor: isDark ? '#2B2F36' : '#E0E0E0' }]} />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -117,11 +124,11 @@ export default function CreateForecast() {
                     <View style={styles.row}>
                         <View style={[styles.field, { flex: 1.2 }]}>
                             <Text style={styles.label}>Symbol *</Text>
-                            <View style={styles.inputWrap}>
+                            <View style={[styles.inputWrap, { backgroundColor: isDark ? '#1E2026' : '#F9F9F9', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, { color: Colors[colorScheme].text }]}
                                     placeholder="AAPL, BTC…"
-                                    placeholderTextColor="#474D57"
+                                    placeholderTextColor={isDark ? "#474D57" : "#999"}
                                     value={symbol}
                                     onChangeText={setSymbol}
                                     autoCapitalize="characters"
@@ -130,7 +137,7 @@ export default function CreateForecast() {
                         </View>
                         <View style={[styles.field, { flex: 1 }]}>
                             <Text style={styles.label}>Type</Text>
-                            <View style={styles.typeSelector}>
+                            <View style={[styles.typeSelector, { backgroundColor: isDark ? '#1E2026' : '#F9F9F9', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}>
                                 <TouchableOpacity
                                     style={[styles.typeBtn, tradeType === 'Buy' && styles.buyActive]}
                                     onPress={() => setTradeType('Buy')}
@@ -150,12 +157,12 @@ export default function CreateForecast() {
                     {/* Money Value */}
                     <View style={styles.section}>
                         <Text style={styles.label}>Profit / Loss ($) *</Text>
-                        <View style={styles.inputWrap}>
+                        <View style={[styles.inputWrap, { backgroundColor: isDark ? '#1E2026' : '#F9F9F9', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}>
                             <Text style={styles.inputPrefix}>$</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, { color: Colors[colorScheme].text }]}
                                 placeholder="0.00"
-                                placeholderTextColor="#474D57"
+                                placeholderTextColor={isDark ? "#474D57" : "#999"}
                                 keyboardType="numeric"
                                 value={moneyValue}
                                 onChangeText={setMoneyValue}
@@ -167,11 +174,11 @@ export default function CreateForecast() {
                     <View style={styles.row}>
                         <View style={[styles.field, { flex: 1 }]}>
                             <Text style={styles.label}>Entry Price</Text>
-                            <View style={styles.inputWrap}>
+                            <View style={[styles.inputWrap, { backgroundColor: isDark ? '#1E2026' : '#F9F9F9', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, { color: Colors[colorScheme].text }]}
                                     placeholder="0.00"
-                                    placeholderTextColor="#474D57"
+                                    placeholderTextColor={isDark ? "#474D57" : "#999"}
                                     keyboardType="numeric"
                                     value={entryPrice}
                                     onChangeText={setEntryPrice}
@@ -180,11 +187,11 @@ export default function CreateForecast() {
                         </View>
                         <View style={[styles.field, { flex: 1 }]}>
                             <Text style={styles.label}>Exit Price</Text>
-                            <View style={styles.inputWrap}>
+                            <View style={[styles.inputWrap, { backgroundColor: isDark ? '#1E2026' : '#F9F9F9', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, { color: Colors[colorScheme].text }]}
                                     placeholder="0.00"
-                                    placeholderTextColor="#474D57"
+                                    placeholderTextColor={isDark ? "#474D57" : "#999"}
                                     keyboardType="numeric"
                                     value={exitPrice}
                                     onChangeText={setExitPrice}
@@ -196,12 +203,12 @@ export default function CreateForecast() {
                     {/* TradingView Link */}
                     <View style={styles.section}>
                         <Text style={styles.label}>TradingView Chart Link</Text>
-                        <View style={styles.inputWrap}>
+                        <View style={[styles.inputWrap, { backgroundColor: isDark ? '#1E2026' : '#F9F9F9', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}>
                             <FontAwesome5 name="chart-line" size={14} color="#848E9C" style={styles.inputIcon} />
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, { color: Colors[colorScheme].text }]}
                                 placeholder="https://www.tradingview.com/x/…"
-                                placeholderTextColor="#474D57"
+                                placeholderTextColor={isDark ? "#474D57" : "#999"}
                                 value={tvLink}
                                 onChangeText={setTvLink}
                                 autoCapitalize="none"
@@ -224,9 +231,9 @@ export default function CreateForecast() {
                     <View style={styles.section}>
                         <Text style={styles.label}>Trade Notes</Text>
                         <TextInput
-                            style={styles.textArea}
+                            style={[styles.textArea, { backgroundColor: isDark ? '#1E2026' : '#F9F9F9', borderColor: isDark ? '#2B2F36' : '#E0E0E0', color: Colors[colorScheme].text }]}
                             placeholder="What was your reasoning for this trade?"
-                            placeholderTextColor="#474D57"
+                            placeholderTextColor={isDark ? "#474D57" : "#999"}
                             multiline
                             numberOfLines={4}
                             value={notes}

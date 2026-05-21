@@ -16,6 +16,8 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors from '@/constants/Colors';
 import { Forecast } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
 
@@ -50,6 +52,8 @@ export default function UserProfile() {
     const router = useRouter();
     const { user: currentUser } = useAuth();
     const { userId } = useLocalSearchParams();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
 
     const [userData, setUserData] = useState<UserData | null>(null);
     const [userPosts, setUserPosts] = useState<Forecast[]>([]);
@@ -180,7 +184,7 @@ export default function UserProfile() {
 
     if (loading) {
         return (
-            <View style={styles.loader}>
+            <View style={[styles.loader, { backgroundColor: Colors[colorScheme].background }]}>
                 <ActivityIndicator size="large" color="#F5C400" />
             </View>
         );
@@ -188,14 +192,14 @@ export default function UserProfile() {
 
     if (!userData) {
         return (
-            <SafeAreaView style={styles.root} edges={['top']}>
+            <SafeAreaView style={[styles.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()}>
-                        <FontAwesome name="chevron-left" size={24} color="#1a1a1a" />
+                        <FontAwesome name="chevron-left" size={24} color={Colors[colorScheme].text} />
                     </TouchableOpacity>
                 </View>
                 <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>User not found</Text>
+                    <Text style={[styles.errorText, { color: Colors[colorScheme].text }]}>User not found</Text>
                 </View>
             </SafeAreaView>
         );
@@ -205,7 +209,7 @@ export default function UserProfile() {
     const memberSince = userData.member_since ? formatMemberSince(userData.member_since) : 'Recently joined';
 
     return (
-        <SafeAreaView style={styles.root} edges={['top']}>
+        <SafeAreaView style={[styles.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
             <ScrollView
                 style={styles.scroll}
                 showsVerticalScrollIndicator={false}
@@ -213,13 +217,13 @@ export default function UserProfile() {
             >
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()}>
-                        <FontAwesome name="chevron-left" size={24} color="#1a1a1a" />
+                        <FontAwesome name="chevron-left" size={24} color={Colors[colorScheme].text} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>{displayName}</Text>
+                    <Text style={[styles.headerTitle, { color: Colors[colorScheme].text }]}>{displayName}</Text>
                     <View style={{ width: 24 }} />
                 </View>
 
-                <View style={styles.profileCard}>
+                <View style={[styles.profileCard, { backgroundColor: isDark ? '#161A1E' : '#FFFFFF', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}>
                     <View style={styles.avatarWrap}>
                         <Avatar url={userData.avatar_url} username={displayName} size={80} />
                         {userData.is_verified && (
@@ -230,7 +234,7 @@ export default function UserProfile() {
                     </View>
                     <View style={styles.profileInfo}>
                         <View style={styles.nameRow}>
-                            <Text style={styles.username}>@{displayName}</Text>
+                            <Text style={[styles.username, { color: Colors[colorScheme].text }]}>@{displayName}</Text>
                             <View style={[styles.tierBadge, userData.subscription_tier === 'pro' && styles.tierBadgePro]}>
                                 <Text style={[styles.tierText, userData.subscription_tier === 'pro' && styles.tierTextPro]}>
                                     {(userData.subscription_tier ?? 'free').toUpperCase()}
@@ -239,19 +243,19 @@ export default function UserProfile() {
                         </View>
                         <Text style={styles.memberSince}>Member since {memberSince}</Text>
                     </View>
-                    <View style={styles.statsRow}>
+                    <View style={[styles.statsRow, { backgroundColor: isDark ? '#1E2026' : '#F9F9F7' }]}>
                         <View style={styles.stat}>
-                            <Text style={styles.statNum}>{userPosts.length}</Text>
+                            <Text style={[styles.statNum, { color: Colors[colorScheme].text }]}>{userPosts.length}</Text>
                             <Text style={styles.statLabel}>Posts</Text>
                         </View>
-                        <View style={styles.statDivider} />
+                        <View style={[styles.statDivider, { backgroundColor: isDark ? '#2B2F36' : '#EEE' }]} />
                         <View style={styles.stat}>
-                            <Text style={styles.statNum}>{followersCount}</Text>
+                            <Text style={[styles.statNum, { color: Colors[colorScheme].text }]}>{followersCount}</Text>
                             <Text style={styles.statLabel}>Followers</Text>
                         </View>
-                        <View style={styles.statDivider} />
+                        <View style={[styles.statDivider, { backgroundColor: isDark ? '#2B2F36' : '#EEE' }]} />
                         <View style={styles.stat}>
-                            <Text style={styles.statNum}>{followingCount}</Text>
+                            <Text style={[styles.statNum, { color: Colors[colorScheme].text }]}>{followingCount}</Text>
                             <Text style={styles.statLabel}>Following</Text>
                         </View>
                     </View>
@@ -274,19 +278,19 @@ export default function UserProfile() {
                         {userPosts.map((post) => (
                             <TouchableOpacity
                                 key={post.id}
-                                style={styles.postCard}
+                                style={[styles.postCard, { backgroundColor: isDark ? '#161A1E' : '#FFFFFF', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}
                                 onPress={() => { setSelectedForecast(post); setModalVisible(true); }}
                                 activeOpacity={0.9}
                             >
                                 <View style={styles.postHeader}>
-                                    <Text style={styles.postPair}>{post.symbol || post.currency_pair}</Text>
+                                    <Text style={[styles.postPair, { color: Colors[colorScheme].text }]}>{post.symbol || post.currency_pair}</Text>
                                     <View style={[styles.profitBadge, { backgroundColor: (post.money_value ?? 0) >= 0 ? '#ecfdf5' : '#fef2f2' }]}>
                                         <Text style={[styles.postProfit, { color: (post.money_value ?? 0) >= 0 ? '#059669' : '#dc2626' }]}>
                                             {(post.money_value ?? 0) >= 0 ? '+' : ''}{(post.money_value ?? 0).toFixed(2)}$
                                         </Text>
                                     </View>
                                 </View>
-                                <Text style={styles.postContent} numberOfLines={2}>{post.notes || post.content}</Text>
+                                <Text style={[styles.postContent, { color: isDark ? '#B7BDC6' : '#444' }]} numberOfLines={2}>{post.notes || post.content}</Text>
                                 <View style={styles.postFooter}>
                                     <View style={styles.postStat}>
                                         <FontAwesome name="heart-o" size={12} color="#ef4444" />

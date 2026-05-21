@@ -1,4 +1,5 @@
 import { AuthProvider } from '@/lib/auth';
+import { ThemeProvider } from '@/components/ThemeContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -31,12 +32,14 @@ export default function RootLayout() {
     if (!loaded) return null;
 
     return (
-        <AuthProvider>
-            <Stack screenOptions={{ headerShown: false }}>
+        <ThemeProvider>
+            <AuthProvider>
+                <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="(auth)" />
                 <Stack.Screen name="(tabs)" />
-            </Stack>
-        </AuthProvider>
+                </Stack>
+            </AuthProvider>
+        </ThemeProvider>
     );
 }

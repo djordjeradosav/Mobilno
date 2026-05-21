@@ -18,14 +18,25 @@ const { width } = Dimensions.get('window');
  */
 export function getTradingViewImageUrl(url: string | null): string | null {
   if (!url) return null;
+  
+  // Handle TradingView sharing links: https://www.tradingview.com/x/ABCDEFG/
   if (url.includes('tradingview.com/x/')) {
-    // If it's a sharing link like /x/ID/, append .png if not present
     const cleanUrl = url.split('?')[0].replace(/\/$/, '');
     if (!cleanUrl.endsWith('.png')) {
       return `${cleanUrl}.png`;
     }
     return cleanUrl;
   }
+  
+  // Handle TradingView chart links: https://www.tradingview.com/chart/SYMBOL/ID/
+  // These often don't have direct image URLs but we can try to help or at least normalize
+  if (url.includes('tradingview.com/chart/')) {
+    // If it's a chart link, it's not a direct image. 
+    // Usually users should use the "Copy image" or "Copy link to chart image" feature which gives /x/ links.
+    // But we can try to detect if they pasted a link that might be an image.
+    return url;
+  }
+
   return url;
 }
 

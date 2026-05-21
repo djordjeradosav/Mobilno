@@ -16,6 +16,8 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors from '@/constants/Colors';
 import { getForexNews, NewsItem as AVNewsItem } from '@/lib/news';
 import ProfilePreviewSheet from '@/components/ProfilePreviewSheet';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
@@ -40,6 +42,8 @@ function timeAgo(ts: number) {
 export default function Search() {
     const router = useRouter();
     const { user } = useAuth();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
     const [searchQuery, setSearchQuery] = useState('');
     const [results, setResults] = useState<UserProfile[]>([]);
     const [news, setNews] = useState<AVNewsItem[]>([]);
@@ -129,22 +133,22 @@ export default function Search() {
     };
 
     return (
-        <SafeAreaView style={s.root} edges={['top']}>
+        <SafeAreaView style={[s.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
             {/* Header */}
             <View style={s.header}>
-                <Text style={s.headerTitle}>Explore</Text>
+                <Text style={[s.headerTitle, { color: Colors[colorScheme].text }]}>Explore</Text>
                 {loadingNews && <ActivityIndicator size="small" color="#F0B90B" />}
             </View>
 
-            <View style={s.dividerLine} />
+            <View style={[s.dividerLine, { backgroundColor: isDark ? '#2B2F36' : '#E0E0E0' }]} />
 
             {/* Search bar */}
-            <View style={s.searchBar}>
+            <View style={[s.searchBar, { backgroundColor: isDark ? '#1E2026' : '#F9F9F9', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}>
                 <FontAwesome name="search" size={14} color="#848E9C" />
                 <TextInput
-                    style={s.searchInput}
+                    style={[s.searchInput, { color: Colors[colorScheme].text }]}
                     placeholder="Search traders…"
-                    placeholderTextColor="#474D57"
+                    placeholderTextColor={isDark ? "#474D57" : "#999"}
                     value={searchQuery}
                     onChangeText={handleSearch}
                     autoCapitalize="none"
@@ -175,7 +179,7 @@ export default function Search() {
                                 <Avatar url={item.avatar_url} username={item.username} size={42} />
                                 <View style={s.userInfo}>
                                     <View style={s.userNameRow}>
-                                        <Text style={s.username}>@{item.username}</Text>
+                                        <Text style={[s.username, { color: Colors[colorScheme].text }]}>@{item.username}</Text>
                                         {item.is_verified && (
                                             <MaterialIcons name="verified" size={12} color="#F0B90B" />
                                         )}
@@ -220,7 +224,7 @@ export default function Search() {
                                     <Text style={s.tradeBadgeText}>{trade.symbol}</Text>
                                 </View>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={s.tradeType}>{trade.trade_type ?? 'Trade'}</Text>
+                                    <Text style={[s.tradeType, { color: Colors[colorScheme].text }]}>{trade.trade_type ?? 'Trade'}</Text>
                                     <Text style={s.tradeUser}>@{(trade as any).users?.username ?? ''}</Text>
                                 </View>
                                 <Text style={[
@@ -253,8 +257,8 @@ export default function Search() {
                                     <Text style={s.newsSource}>{item.source}</Text>
                                     <Text style={s.newsDate}>{timeAgo(item.datetime)}</Text>
                                 </View>
-                                <Text style={s.newsTitle} numberOfLines={2}>{item.headline}</Text>
-                                <Text style={s.newsSummary} numberOfLines={2}>{item.summary}</Text>
+                                <Text style={[s.newsTitle, { color: Colors[colorScheme].text }]} numberOfLines={2}>{item.headline}</Text>
+                                <Text style={[s.newsSummary, { color: isDark ? '#848E9C' : '#666' }]} numberOfLines={2}>{item.summary}</Text>
                                 {item.tickers.length > 0 && (
                                     <View style={s.tickerRow}>
                                         {item.tickers.map(t => (

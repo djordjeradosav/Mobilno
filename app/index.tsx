@@ -8,11 +8,12 @@ export default function Index() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoaded) return;
-    const t = setTimeout(() => {
-      router.replace(user ? '/(tabs)/popular' : '/(auth)/welcome' as any);
-    }, 1500);
-    return () => clearTimeout(t);
+    if (isLoaded) {
+      const timer = setTimeout(() => {
+        router.replace(user ? '/(tabs)/popular' : '/(auth)/welcome');
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
   }, [isLoaded, user]);
 
   return (
@@ -23,17 +24,6 @@ export default function Index() {
 }
 
 const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5C400',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logo: {
-    fontSize: 36,
-    fontWeight: '800',
-    fontStyle: 'italic',
-    color: '#111111',
-    letterSpacing: -1,
-  },
+  container: { flex: 1, backgroundColor: '#F5C400', alignItems: 'center', justifyContent: 'center' },
+  logo: { fontSize: 36, fontWeight: '800', fontStyle: 'italic', color: '#111111', letterSpacing: -1 },
 });

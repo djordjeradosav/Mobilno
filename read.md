@@ -58,7 +58,8 @@ Mobilno/
 ├── supabase/
 │   └── schema.sql            # Referentna SQL šema (može se razlikovati od produkcije)
 ├── assets/                   # Fontovi, ikone, splash
-├── .env                      # Tajni ključevi (NE commitovati u git!)
+├── .env                      # Tvoji ključevi (kopija iz .env.example)
+├── .env.example              # Šablon sa objašnjenjima — safe za git
 ├── app.json                  # Expo konfiguracija
 ├── package.json
 └── read.md                   # Ovaj fajl
@@ -84,7 +85,13 @@ npm install
 
 ### 3. Podesi `.env`
 
-Kopiraj `.env.example` ako postoji, ili kreiraj `.env` u root-u:
+Kopiraj primer env fajla i popuni vrednosti:
+
+```bash
+cp .env.example .env
+```
+
+Zatim uredi `.env` (vidi komentare u `.env.example`):
 
 ```env
 # Supabase (obavezno)

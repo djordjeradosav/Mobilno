@@ -1,3 +1,27 @@
+/**
+ * ============================================================================
+ * REGISTER EKRAN — app/(auth)/register.tsx
+ * ============================================================================
+ *
+ * Kreiranje novog naloga: username, email, lozinka, prihvatanje uslova.
+ *
+ * API POZIV (lib/supabaseRest.ts):
+ *   POST {SUPABASE_URL}/auth/v1/signup
+ *   Body: { email, password, data: { username, full_name } }
+ *   data → user_metadata u Supabase Auth (koristi se u profilu / triggerima)
+ *
+ * NAPOMENE:
+ * - Ako je u Supabase uključena "Confirm email", korisnik možda ne dobije
+ *   access_token odmah — poruka traži potvrdu mejla pre logina.
+ * - Duplikat emaila: posebna grana sa Alert-om i linkom na login.
+ * - syncUserToSupabase() se NE poziva ovde automatski — profil u public.users
+ *   može nastati pri prvom postu (forecast tab) ili ručnim triggerom u bazi.
+ *
+ * KOMPONENTA Field:
+ *   Izdvojena van Register da se ne kreira na svaki re-render (performanse).
+ */
+
+import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -13,9 +37,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { supabase } from '@/lib/supabase';
 
-// ✅ Moved OUTSIDE Register so it's not recreated on every render
+/** Ponovljivo polje forme (label + ikona + TextInput) */
 type FieldProps = {
     label: string;
     icon: string;
@@ -55,6 +78,7 @@ function Field({ label, icon, value, onChange, placeholder, secure, keyboard, to
 
 export default function Register() {
     const router = useRouter();
+
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -62,6 +86,12 @@ export default function Register() {
     const [agreeTerms, setAgreeTerms] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    /**
+     * 1) Validacija polja i checkbox-a za uslove
+     * 2) signUp preko REST-a
+     * 3) Obrada grešaka (postojeći nalog vs generička greška)
+     * 4) Uspeh → Alert + redirect na login
+     */
     const handleRegister = async () => {
         if (!username.trim() || !email.trim() || !password.trim()) {
             Alert.alert('Missing fields', 'Please fill in username, email, and password.');
@@ -77,6 +107,7 @@ export default function Register() {
                 email: email.trim().toLowerCase(),
                 password,
                 options: {
+                    // metadata vidljiv u auth.users.raw_user_meta_data
                     data: {
                         username: username.trim().toLowerCase(),
                         full_name: username.trim(),
@@ -86,6 +117,7 @@ export default function Register() {
 
             if (authError) {
                 const msg = authError.message?.toLowerCase() ?? '';
+                // GoTrue često vraća različite stringove za isti slučaj
                 if (
                     msg.includes('already registered') ||
                     msg.includes('already been registered') ||
@@ -129,17 +161,14 @@ export default function Register() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                {/* Back */}
                 <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
                     <FontAwesome name="arrow-left" size={16} color="#848E9C" />
                 </TouchableOpacity>
 
-                {/* Header */}
                 <Text style={s.brand}>Ticksnap</Text>
                 <Text style={s.title}>Create account</Text>
                 <Text style={s.sub}>Join thousands of elite traders</Text>
 
-                {/* Fields */}
                 <View style={s.form}>
                     <Field
                         label="Username"
@@ -166,7 +195,7 @@ export default function Register() {
                         toggleSecure={() => setShowPassword(!showPassword)}
                     />
 
-                    {/* Terms */}
+                    {/* Obavezno prihvatanje uslova pre submit-a */}
                     <TouchableOpacity style={s.termsRow} onPress={() => setAgreeTerms(!agreeTerms)} activeOpacity={0.7}>
                         <View style={[s.checkbox, agreeTerms && s.checkboxOn]}>
                             {agreeTerms && <FontAwesome name="check" size={10} color="#0B0E11" />}
@@ -177,7 +206,6 @@ export default function Register() {
                         </Text>
                     </TouchableOpacity>
 
-                    {/* Submit */}
                     <TouchableOpacity
                         style={[s.primaryBtn, loading && s.disabled]}
                         onPress={handleRegister}

@@ -125,9 +125,7 @@ Tabele:
    EXPO_PUBLIC_FRED_API_KEY=tvoj_fred_key
    ```
 
-4. Pokreni SQL shemu u Supabase SQL Editoru (`supabase/schema.sql`)
-
-5. Pokreni aplikaciju:
+4. Pokreni aplikaciju:
    ```bash
    npx expo start
    ```

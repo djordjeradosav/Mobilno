@@ -14,8 +14,10 @@ import {
     KeyboardAvoidingView,
     Platform,
     Image,
+    ActivityIndicator,
 } from 'react-native';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/components/ThemeContext';
 import Colors from '@/constants/Colors';
@@ -23,6 +25,7 @@ import { Trade, getTradingViewImageUrl } from './ForecastCard';
 import Avatar from './Avatar';
 import { syncUserToSupabase } from '@/lib/syncUser';
 import { useAuth } from '@/lib/auth';
+import { updateTradeImage, deleteTradeImage } from '@/lib/updateTradeImage';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const SHEET_H = SCREEN_H * 0.85;
@@ -58,6 +61,8 @@ export default function TradeDetailsModal({
     const [editTradeType, setEditTradeType] = useState<'Buy' | 'Sell'>('Buy');
     const [editEntryPrice, setEditEntryPrice] = useState('');
     const [editExitPrice, setEditExitPrice] = useState('');
+    const [editImageUri, setEditImageUri] = useState<string | null>(null);
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [comments, setComments] = useState<any[]>([]);
     const [newComment, setNewComment] = useState('');
     const [submittingComment, setSubmittingComment] = useState(false);
@@ -81,6 +86,7 @@ export default function TradeDetailsModal({
             setEditTradeType(forecast?.trade_type || 'Buy');
             setEditEntryPrice(forecast?.entry_price?.toString() || '');
             setEditExitPrice(forecast?.exit_price?.toString() || '');
+            setEditImageUri(null);
             setIsEditing(false);
             fetchComments();
             Animated.parallel([
@@ -126,6 +132,52 @@ export default function TradeDetailsModal({
             if (onUpdate) onUpdate();
         }
         setSubmittingComment(false);
+    };
+
+    const pickEditImage = async () => {
+        if (Platform.OS !== 'web') {
+            const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!granted) return Alert.alert('Error', 'Permission needed.');
+        }
+        const res = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.8
+        });
+        if (!res.canceled) setEditImageUri(res.assets[0].uri);
+    };
+
+    const handleUpdateTradeImage = async () => {
+        if (!editImageUri || !forecast?.id || !currentUserId) return;
+        setUploadingImage(true);
+        const newImageUrl = await updateTradeImage(forecast.id, editImageUri, currentUserId);
+        setUploadingImage(false);
+        if (newImageUrl) {
+            setEditImageUri(null);
+            if (onUpdate) onUpdate();
+            Alert.alert('Success', 'Chart image updated');
+        } else {
+            Alert.alert('Error', 'Could not update chart image');
+        }
+    };
+
+    const handleDeleteTradeImage = async () => {
+        if (!forecast?.id) return;
+        Alert.alert('Delete Chart', 'Remove this chart image?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    const success = await deleteTradeImage(forecast.id);
+                    if (success) {
+                        if (onUpdate) onUpdate();
+                        Alert.alert('Success', 'Chart image deleted');
+                    } else {
+                        Alert.alert('Error', 'Could not delete chart image');
+                    }
+                }
+            }
+        ]);
     };
 
     const handleUpdateTrade = async () => {
@@ -294,6 +346,37 @@ export default function TradeDetailsModal({
                                         placeholder="0.00"
                                     />
                                 </View>
+                                <View style={styles.imageEditSection}>
+                                    <Text style={[styles.editLabel, { color: C.textMuted }]}>Chart Image</Text>
+                                    {editImageUri ? (
+                                        <View style={styles.imagePreview}>
+                                            <Image source={{ uri: editImageUri }} style={styles.previewImage} />
+                                            <TouchableOpacity style={styles.removeImageBtn} onPress={() => setEditImageUri(null)}>
+                                                <FontAwesome name="times" size={14} color="#fff" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    ) : (
+                                        <TouchableOpacity style={[styles.pickImageBtn, { backgroundColor: C.surface, borderColor: C.border }]} onPress={pickEditImage}>
+                                            <FontAwesome name="picture-o" size={20} color={C.iconDefault} />
+                                            <Text style={[styles.pickImageText, { color: C.textMuted }]}>Choose new chart</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    {editImageUri && (
+                                        <TouchableOpacity style={[styles.uploadImageBtn, { backgroundColor: C.accent }, uploadingImage && { opacity: 0.6 }]} onPress={handleUpdateTradeImage} disabled={uploadingImage}>
+                                            {uploadingImage ? (
+                                                <ActivityIndicator color={C.textInverse} />
+                                            ) : (
+                                                <Text style={[styles.uploadImageBtnText, { color: C.textInverse }]}>Upload New Chart</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    )}
+                                    {forecast.chart_image_url && !editImageUri && (
+                                        <TouchableOpacity style={[styles.deleteImageBtn, { backgroundColor: 'rgba(246,70,93,0.12)' }]} onPress={handleDeleteTradeImage}>
+                                            <FontAwesome name="trash" size={16} color={C.danger} />
+                                            <Text style={[styles.deleteImageBtnText, { color: C.danger }]}>Remove Current Chart</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
                                 <TouchableOpacity style={[styles.saveBtn, { backgroundColor: C.accent }]} onPress={handleUpdateTrade}>
                                     <Text style={[styles.saveBtnText, { color: C.textInverse }]}>Save Changes</Text>
                                 </TouchableOpacity>
@@ -453,6 +536,16 @@ const styles = StyleSheet.create({
     typeButtonsRow: { flexDirection: 'row', gap: 12 },
     typeButton: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
     typeButtonText: { fontSize: 14, fontWeight: '700' },
+    imageEditSection: { gap: 8, marginTop: 8 },
+    imagePreview: { borderRadius: 12, overflow: 'hidden', position: 'relative' },
+    previewImage: { width: '100%', height: 160, backgroundColor: 'rgba(0,0,0,0.05)' },
+    removeImageBtn: { position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center' },
+    pickImageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 12, paddingVertical: 16, borderWidth: 1.5, borderStyle: 'dashed' },
+    pickImageText: { fontSize: 14, fontWeight: '600' },
+    uploadImageBtn: { height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+    uploadImageBtnText: { fontSize: 14, fontWeight: '700' },
+    deleteImageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 44, borderRadius: 12, marginTop: 8 },
+    deleteImageBtnText: { fontSize: 14, fontWeight: '700' },
     saveBtn: { height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
     saveBtnText: { fontSize: 16, fontWeight: '800' },
 });

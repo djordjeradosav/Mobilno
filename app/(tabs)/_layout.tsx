@@ -47,8 +47,8 @@ function TabIcon({
 }
 
 const tabStyles = StyleSheet.create({
-    wrap: { alignItems: 'center', gap: 4, paddingTop: 6, paddingBottom: 2 },
-    label: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
+    wrap: { alignItems: 'center', gap: 4, paddingTop: 6, paddingBottom: 2, maxWidth: 60 },
+    label: { fontSize: 10, fontWeight: '700', letterSpacing: 0.1, textAlign: 'center' },
 });
 
 export default function TabsLayout() {
@@ -71,7 +71,7 @@ export default function TabsLayout() {
                     backgroundColor: C.card,
                     borderTopWidth: 1,
                     borderTopColor: C.border,
-                    height: 72,
+                    height: 80,
                     paddingBottom: 10,
                     paddingTop: 6,
                     elevation: 20,
@@ -96,7 +96,7 @@ export default function TabsLayout() {
                 name="search"
                 options={{
                     tabBarIcon: ({ focused }) => (
-                        <TabIcon iconName="search" label="Explore" focused={focused} />
+                        <TabIcon iconName="search" label="Search" focused={focused} />
                     ),
                 }}
             />

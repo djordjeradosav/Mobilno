@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
-import { useColorScheme } from '@/components/useColorScheme';
+import { useTheme } from '@/components/ThemeContext';
 import Colors from '@/constants/Colors';
 import { Trade, getTradingViewImageUrl } from './ForecastCard';
 import Avatar from './Avatar';
@@ -46,8 +46,9 @@ export default function TradeDetailsModal({
     currentUserId,
     onUpdate,
 }: Props) {
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const { colorScheme } = useTheme();
+    const C = Colors[colorScheme];
+
     const slideAnim = useRef(new Animated.Value(SHEET_H)).current;
     const backdropAnim = useRef(new Animated.Value(0)).current;
     const [isEditing, setIsEditing] = useState(false);
@@ -100,7 +101,6 @@ export default function TradeDetailsModal({
         if (!newComment.trim() || !currentUserId || !forecast?.id) return;
         setSubmittingComment(true);
 
-        // Ensure user exists in public.users table
         if (authUser) {
             try {
                 await syncUserToSupabase(authUser.id, authUser.email?.split('@')[0] || 'trader', authUser.email || '');
@@ -200,14 +200,14 @@ export default function TradeDetailsModal({
                 style={{ flex: 1, justifyContent: 'flex-end' }}
             >
                 <Animated.View style={[
-                    styles.sheet, 
-                    { 
+                    styles.sheet,
+                    {
                         transform: [{ translateY: slideAnim }],
-                        backgroundColor: isDark ? '#161A1E' : '#FFFFFF'
+                        backgroundColor: C.background
                     }
                 ]}>
                     <View {...panResponder.panHandlers} style={styles.handleArea}>
-                        <View style={[styles.handle, { backgroundColor: isDark ? '#2B2F36' : '#E0E0E0' }]} />
+                        <View style={[styles.handle, { backgroundColor: C.border }]} />
                     </View>
 
                     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -215,18 +215,18 @@ export default function TradeDetailsModal({
                             <Avatar url={user?.avatar_url} username={user?.username ?? '?'} size={44} />
                             <View style={styles.headerInfo}>
                                 <View style={styles.usernameRow}>
-                                    <Text style={[styles.username, { color: Colors[colorScheme].text }]}>{user?.username ?? 'Trader'}</Text>
-                                    {user?.is_verified && <MaterialIcons name="verified" size={14} color="#F5C400" />}
+                                    <Text style={[styles.username, { color: C.text }]}>{user?.username ?? 'Trader'}</Text>
+                                    {user?.is_verified && <MaterialIcons name="verified" size={14} color={C.accent} />}
                                 </View>
-                                <Text style={styles.timestamp}>{new Date(forecast.created_at).toLocaleDateString()}</Text>
+                                <Text style={[styles.timestamp, { color: C.textMuted }]}>{new Date(forecast.created_at).toLocaleDateString()}</Text>
                             </View>
                             {isOwner && (
                                 <View style={styles.ownerActions}>
-                                    <TouchableOpacity style={styles.iconBtn} onPress={() => setIsEditing(!isEditing)}>
+                                    <TouchableOpacity style={[styles.iconBtn, { backgroundColor: C.surface }]} onPress={() => setIsEditing(!isEditing)}>
                                         <FontAwesome name="edit" size={20} color="#4299E1" />
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={styles.iconBtn} onPress={handleDeleteTrade}>
-                                        <FontAwesome name="trash" size={20} color="#F56565" />
+                                    <TouchableOpacity style={[styles.iconBtn, { backgroundColor: C.surface }]} onPress={handleDeleteTrade}>
+                                        <FontAwesome name="trash" size={20} color={C.danger} />
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -235,109 +235,113 @@ export default function TradeDetailsModal({
                         {isEditing ? (
                             <View style={styles.editGrid}>
                                 <View style={styles.editField}>
-                                    <Text style={styles.editLabel}>Symbol</Text>
+                                    <Text style={[styles.editLabel, { color: C.textMuted }]}>Symbol</Text>
                                     <TextInput
-                                        style={styles.editTextInput}
+                                        style={[styles.editTextInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
                                         value={editSymbol}
                                         onChangeText={setEditSymbol}
+                                        placeholderTextColor={C.placeholder}
                                         placeholder="BTC, AAPL, etc."
                                     />
                                 </View>
                                 <View style={styles.editField}>
-                                    <Text style={styles.editLabel}>P&L ($)</Text>
+                                    <Text style={[styles.editLabel, { color: C.textMuted }]}>P&L ($)</Text>
                                     <TextInput
-                                        style={styles.editTextInput}
+                                        style={[styles.editTextInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
                                         value={editMoneyValue}
                                         onChangeText={setEditMoneyValue}
                                         keyboardType="decimal-pad"
+                                        placeholderTextColor={C.placeholder}
                                         placeholder="0.00"
                                     />
                                 </View>
                                 <View style={styles.editField}>
-                                    <Text style={styles.editLabel}>Type</Text>
+                                    <Text style={[styles.editLabel, { color: C.textMuted }]}>Type</Text>
                                     <View style={styles.typeButtonsRow}>
                                         <TouchableOpacity
-                                            style={[styles.typeButton, editTradeType === 'Buy' && styles.typeButtonActive]}
+                                            style={[styles.typeButton, { backgroundColor: C.surface, borderColor: C.border }, editTradeType === 'Buy' && { backgroundColor: C.accent, borderColor: C.accent }]}
                                             onPress={() => setEditTradeType('Buy')}
                                         >
-                                            <Text style={[styles.typeButtonText, editTradeType === 'Buy' && styles.typeButtonTextActive]}>Buy</Text>
+                                            <Text style={[styles.typeButtonText, { color: C.textMuted }, editTradeType === 'Buy' && { color: C.textInverse }]}>Buy</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
-                                            style={[styles.typeButton, editTradeType === 'Sell' && styles.typeButtonActive]}
+                                            style={[styles.typeButton, { backgroundColor: C.surface, borderColor: C.border }, editTradeType === 'Sell' && { backgroundColor: C.accent, borderColor: C.accent }]}
                                             onPress={() => setEditTradeType('Sell')}
                                         >
-                                            <Text style={[styles.typeButtonText, editTradeType === 'Sell' && styles.typeButtonTextActive]}>Sell</Text>
+                                            <Text style={[styles.typeButtonText, { color: C.textMuted }, editTradeType === 'Sell' && { color: C.textInverse }]}>Sell</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
                                 <View style={styles.editField}>
-                                    <Text style={styles.editLabel}>Entry ($)</Text>
+                                    <Text style={[styles.editLabel, { color: C.textMuted }]}>Entry ($)</Text>
                                     <TextInput
-                                        style={styles.editTextInput}
+                                        style={[styles.editTextInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
                                         value={editEntryPrice}
                                         onChangeText={setEditEntryPrice}
                                         keyboardType="decimal-pad"
+                                        placeholderTextColor={C.placeholder}
                                         placeholder="0.00"
                                     />
                                 </View>
                                 <View style={styles.editField}>
-                                    <Text style={styles.editLabel}>Exit ($)</Text>
+                                    <Text style={[styles.editLabel, { color: C.textMuted }]}>Exit ($)</Text>
                                     <TextInput
-                                        style={styles.editTextInput}
+                                        style={[styles.editTextInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
                                         value={editExitPrice}
                                         onChangeText={setEditExitPrice}
                                         keyboardType="decimal-pad"
+                                        placeholderTextColor={C.placeholder}
                                         placeholder="0.00"
                                     />
                                 </View>
-                                <TouchableOpacity style={styles.saveBtn} onPress={handleUpdateTrade}>
-                                    <Text style={styles.saveBtnText}>Save Changes</Text>
+                                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: C.accent }]} onPress={handleUpdateTrade}>
+                                    <Text style={[styles.saveBtnText, { color: C.textInverse }]}>Save Changes</Text>
                                 </TouchableOpacity>
                             </View>
                         ) : (
                             <>
                                 <View style={styles.mainInfo}>
                                     <View style={styles.pairRow}>
-                                        <Text style={[styles.pairText, { color: Colors[colorScheme].text }]}>{forecast.symbol || forecast.currency_pair}</Text>
-                                        <View style={[styles.typeBadge, { backgroundColor: isProfitable ? '#E6FFFA' : '#FFF5F5' }]}>
-                                            <Text style={[styles.typeText, { color: isProfitable ? '#319795' : '#E53E3E' }]}>
+                                        <Text style={[styles.pairText, { color: C.text }]}>{forecast.symbol || forecast.currency_pair}</Text>
+                                        <View style={[styles.typeBadge, { backgroundColor: isProfitable ? 'rgba(14,203,129,0.12)' : 'rgba(246,70,93,0.12)' }]}>
+                                            <Text style={[styles.typeText, { color: isProfitable ? C.success : C.danger }]}>
                                                 {isProfitable ? 'PROFIT' : 'LOSS'}
                                             </Text>
                                         </View>
                                     </View>
-                                    <Text style={[styles.profitText, { color: isProfitable ? '#0ECB81' : '#F6465D' }]}>
+                                    <Text style={[styles.profitText, { color: isProfitable ? C.success : C.danger }]}>
                                         {isProfitable ? '+' : ''}{forecast.money_value || forecast.profit || 0}$
                                     </Text>
                                 </View>
 
-                                <View style={styles.detailsGrid}>
+                                <View style={[styles.detailsGrid, { backgroundColor: C.surface }]}>
                                     <View style={styles.detailItem}>
-                                        <Text style={styles.detailLabel}>Type</Text>
-                                        <Text style={[styles.detailValue, { color: Colors[colorScheme].text }]}>{forecast.trade_type || 'N/A'}</Text>
+                                        <Text style={[styles.detailLabel, { color: C.textMuted }]}>Type</Text>
+                                        <Text style={[styles.detailValue, { color: C.text }]}>{forecast.trade_type || 'N/A'}</Text>
                                     </View>
                                     <View style={styles.detailItem}>
-                                        <Text style={styles.detailLabel}>Entry</Text>
-                                        <Text style={[styles.detailValue, { color: Colors[colorScheme].text }]}>${forecast.entry_price || '0.00'}</Text>
+                                        <Text style={[styles.detailLabel, { color: C.textMuted }]}>Entry</Text>
+                                        <Text style={[styles.detailValue, { color: C.text }]}>${forecast.entry_price || '0.00'}</Text>
                                     </View>
                                     <View style={styles.detailItem}>
-                                        <Text style={styles.detailLabel}>Exit</Text>
-                                        <Text style={[styles.detailValue, { color: Colors[colorScheme].text }]}>${forecast.exit_price || '0.00'}</Text>
+                                        <Text style={[styles.detailLabel, { color: C.textMuted }]}>Exit</Text>
+                                        <Text style={[styles.detailValue, { color: C.text }]}>${forecast.exit_price || '0.00'}</Text>
                                     </View>
                                 </View>
 
                                 {forecast.notes ? (
                                     <View style={styles.notesSection}>
-                                        <Text style={styles.sectionLabel}>Analysis</Text>
-                                        <Text style={styles.notesText}>{forecast.notes}</Text>
+                                        <Text style={[styles.sectionLabel, { color: C.textMuted }]}>Analysis</Text>
+                                        <Text style={[styles.notesText, { color: C.textSecondary }]}>{forecast.notes}</Text>
                                     </View>
                                 ) : null}
 
                                 {forecast.chart_image_url ? (
                                     <View style={styles.chartSection}>
-                                        <Text style={styles.sectionLabel}>Chart</Text>
+                                        <Text style={[styles.sectionLabel, { color: C.textMuted }]}>Chart</Text>
                                         <Image
                                             source={{ uri: getTradingViewImageUrl(forecast.chart_image_url) || '' }}
-                                            style={styles.chartImage}
+                                            style={[styles.chartImage, { backgroundColor: C.surface }]}
                                             resizeMode="cover"
                                         />
                                     </View>
@@ -345,28 +349,29 @@ export default function TradeDetailsModal({
                             </>
                         )}
 
-                        <View style={styles.actions}>
+                        <View style={[styles.actions, { borderColor: C.divider }]}>
                             <TouchableOpacity
-                                style={[styles.actionBtn, isLiked && styles.actionBtnActive]}
+                                style={[styles.actionBtn, { backgroundColor: C.surface }, isLiked && { backgroundColor: 'rgba(246,70,93,0.12)' }]}
                                 onPress={() => onLike(forecast.id)}
                             >
-                                <FontAwesome name={isLiked ? "heart" : "heart-o"} size={20} color={isLiked ? "#E53E3E" : "#4A5568"} />
-                                <Text style={[styles.actionText, isLiked && styles.actionTextActive]}>
+                                <FontAwesome name={isLiked ? "heart" : "heart-o"} size={20} color={isLiked ? C.danger : C.iconDefault} />
+                                <Text style={[styles.actionText, { color: C.textSecondary }, isLiked && { color: C.danger }]}>
                                     {forecast.likes_count || 0}
                                 </Text>
                             </TouchableOpacity>
-                            <View style={styles.actionBtn}>
-                                <FontAwesome name="comment-o" size={20} color="#4A5568" />
-                                <Text style={styles.actionText}>{comments.length}</Text>
+                            <View style={[styles.actionBtn, { backgroundColor: C.surface }]}>
+                                <FontAwesome name="comment-o" size={20} color={C.iconDefault} />
+                                <Text style={[styles.actionText, { color: C.textSecondary }]}>{comments.length}</Text>
                             </View>
                         </View>
 
                         <View style={styles.commentsSection}>
-                            <Text style={styles.sectionLabel}>Comments</Text>
+                            <Text style={[styles.sectionLabel, { color: C.textMuted }]}>Comments</Text>
                             <View style={styles.commentInputRow}>
                                 <TextInput
-                                    style={styles.commentInput}
+                                    style={[styles.commentInput, { backgroundColor: C.surface, color: C.text }]}
                                     placeholder="Add a comment..."
+                                    placeholderTextColor={C.placeholder}
                                     value={newComment}
                                     onChangeText={setNewComment}
                                     multiline
@@ -376,7 +381,7 @@ export default function TradeDetailsModal({
                                     onPress={handleAddComment}
                                     disabled={!newComment.trim() || submittingComment}
                                 >
-                                    <MaterialIcons name="send" size={24} color="#F5C400" />
+                                    <MaterialIcons name="send" size={24} color={C.accent} />
                                 </TouchableOpacity>
                             </View>
 
@@ -385,10 +390,10 @@ export default function TradeDetailsModal({
                                     <Avatar url={comment.users?.avatar_url} username={comment.users?.username ?? '?'} size={32} />
                                     <View style={styles.commentContent}>
                                         <View style={styles.commentHeader}>
-                                            <Text style={styles.commentUser}>{comment.users?.username}</Text>
-                                            <Text style={styles.commentTime}>{new Date(comment.created_at).toLocaleDateString()}</Text>
+                                            <Text style={[styles.commentUser, { color: C.text }]}>{comment.users?.username}</Text>
+                                            <Text style={[styles.commentTime, { color: C.textMuted }]}>{new Date(comment.created_at).toLocaleDateString()}</Text>
                                         </View>
-                                        <Text style={styles.commentText}>{comment.content}</Text>
+                                        <Text style={[styles.commentText, { color: C.textSecondary }]}>{comment.content}</Text>
                                     </View>
                                 </View>
                             ))}
@@ -402,56 +407,52 @@ export default function TradeDetailsModal({
 
 const styles = StyleSheet.create({
     backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
-    sheet: { backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32, height: SHEET_H, overflow: 'hidden' },
+    sheet: { borderTopLeftRadius: 32, borderTopRightRadius: 32, height: SHEET_H, overflow: 'hidden' },
     handleArea: { height: 32, alignItems: 'center', justifyContent: 'center' },
-    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E2E8F0' },
+    handle: { width: 40, height: 4, borderRadius: 2 },
     content: { padding: 24, paddingBottom: 100 },
     header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
     headerInfo: { flex: 1, marginLeft: 12 },
     usernameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    username: { fontSize: 16, fontWeight: '700', color: '#1A202C' },
-    timestamp: { fontSize: 12, color: '#718096', marginTop: 2 },
+    username: { fontSize: 16, fontWeight: '700' },
+    timestamp: { fontSize: 12, marginTop: 2 },
     ownerActions: { flexDirection: 'row', gap: 12 },
-    iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F7FAFC', alignItems: 'center', justifyContent: 'center' },
+    iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     mainInfo: { marginBottom: 24 },
     pairRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
-    pairText: { fontSize: 28, fontWeight: '800', color: '#1A202C' },
+    pairText: { fontSize: 28, fontWeight: '800' },
     typeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
     typeText: { fontSize: 10, fontWeight: '800' },
-    profitText: { fontSize: 36, fontWeight: '900', color: '#1A202C' },
-    detailsGrid: { flexDirection: 'row', backgroundColor: '#F7FAFC', borderRadius: 20, padding: 20, marginBottom: 24 },
+    profitText: { fontSize: 36, fontWeight: '900' },
+    detailsGrid: { flexDirection: 'row', borderRadius: 20, padding: 20, marginBottom: 24 },
     detailItem: { flex: 1 },
-    detailLabel: { fontSize: 12, color: '#718096', marginBottom: 4, fontWeight: '600' },
-    detailValue: { fontSize: 16, fontWeight: '700', color: '#2D3748' },
+    detailLabel: { fontSize: 12, marginBottom: 4, fontWeight: '600' },
+    detailValue: { fontSize: 16, fontWeight: '700' },
     notesSection: { marginBottom: 24 },
-    sectionLabel: { fontSize: 14, fontWeight: '800', color: '#718096', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
-    notesText: { fontSize: 16, color: '#4A5568', lineHeight: 24 },
+    sectionLabel: { fontSize: 14, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
+    notesText: { fontSize: 16, lineHeight: 24 },
     chartSection: { marginBottom: 24 },
-    chartImage: { width: '100%', height: 220, borderRadius: 12, backgroundColor: '#1E2026' },
-    actions: { flexDirection: 'row', gap: 16, paddingVertical: 16, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#EDF2F7', marginBottom: 24 },
-    actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F7FAFC', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
-    actionBtnActive: { backgroundColor: '#FFF5F5' },
-    actionText: { fontSize: 14, fontWeight: '700', color: '#4A5568' },
-    actionTextActive: { color: '#E53E3E' },
+    chartImage: { width: '100%', height: 220, borderRadius: 12 },
+    actions: { flexDirection: 'row', gap: 16, paddingVertical: 16, borderTopWidth: 1, borderBottomWidth: 1, marginBottom: 24 },
+    actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
+    actionText: { fontSize: 14, fontWeight: '700' },
     commentsSection: {},
     commentInputRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
-    commentInput: { flex: 1, backgroundColor: '#F7FAFC', borderRadius: 16, padding: 12, fontSize: 14, maxHeight: 100 },
+    commentInput: { flex: 1, borderRadius: 16, padding: 12, fontSize: 14, maxHeight: 100 },
     sendBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
     commentItem: { flexDirection: 'row', gap: 12, marginBottom: 20 },
     commentContent: { flex: 1 },
     commentHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-    commentUser: { fontSize: 14, fontWeight: '700', color: '#2D3748' },
-    commentTime: { fontSize: 12, color: '#A0AEC0' },
-    commentText: { fontSize: 14, color: '#4A5568', lineHeight: 20 },
+    commentUser: { fontSize: 14, fontWeight: '700' },
+    commentTime: { fontSize: 12 },
+    commentText: { fontSize: 14, lineHeight: 20 },
     editGrid: { gap: 16 },
     editField: { gap: 8 },
-    editLabel: { fontSize: 12, fontWeight: '700', color: '#718096' },
-    editTextInput: { backgroundColor: '#F7FAFC', borderRadius: 12, padding: 12, fontSize: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+    editLabel: { fontSize: 12, fontWeight: '700' },
+    editTextInput: { borderRadius: 12, padding: 12, fontSize: 16, borderWidth: 1 },
     typeButtonsRow: { flexDirection: 'row', gap: 12 },
-    typeButton: { flex: 1, height: 44, borderRadius: 12, backgroundColor: '#F7FAFC', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
-    typeButtonActive: { backgroundColor: '#F5C400', borderColor: '#F5C400' },
-    typeButtonText: { fontSize: 14, fontWeight: '700', color: '#718096' },
-    typeButtonTextActive: { color: '#1A202C' },
-    saveBtn: { backgroundColor: '#F5C400', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
-    saveBtnText: { fontSize: 16, fontWeight: '800', color: '#1A202C' },
+    typeButton: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+    typeButtonText: { fontSize: 14, fontWeight: '700' },
+    saveBtn: { height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+    saveBtnText: { fontSize: 16, fontWeight: '800' },
 });

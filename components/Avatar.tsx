@@ -31,7 +31,7 @@ export default function Avatar({ url, username, size = 44 }: AvatarProps) {
 
 const styles = StyleSheet.create({
     fallback: {
-        backgroundColor: '#F5C400',
+        backgroundColor: '#F0B90B',
         alignItems: 'center',
         justifyContent: 'center',
     },

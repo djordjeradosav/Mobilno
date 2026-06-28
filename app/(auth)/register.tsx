@@ -14,16 +14,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useTheme } from '@/components/ThemeContext';
+import Colors from '@/constants/Colors';
 
-const Field = ({ label, icon, value, onChange, placeholder, secure, keyboard, toggleSecure }: any) => (
+const Field = ({ label, icon, value, onChange, placeholder, secure, keyboard, toggleSecure, C }: any) => (
   <View style={s.fieldWrap}>
-    <Text style={s.label}>{label}</Text>
-    <View style={s.inputRow}>
-      <FontAwesome name={icon} size={15} color="#848E9C" style={s.inputIcon} />
+    <Text style={[s.label, { color: C.textMuted }]}>{label}</Text>
+    <View style={[s.inputRow, { backgroundColor: C.inputBackground, borderColor: C.border }]}>
+      <FontAwesome name={icon} size={15} color={C.iconDefault} style={s.inputIcon} />
       <TextInput
-        style={s.input}
+        style={[s.input, { color: C.text }]}
         placeholder={placeholder}
-        placeholderTextColor="#474D57"
+        placeholderTextColor={C.placeholder}
         value={value}
         onChangeText={onChange}
         autoCapitalize="none"
@@ -32,7 +34,7 @@ const Field = ({ label, icon, value, onChange, placeholder, secure, keyboard, to
       />
       {toggleSecure && (
         <TouchableOpacity onPress={toggleSecure} style={s.eyeBtn}>
-          <FontAwesome name={secure ? 'eye' : 'eye-slash'} size={15} color="#848E9C" />
+          <FontAwesome name={secure ? 'eye' : 'eye-slash'} size={15} color={C.iconDefault} />
         </TouchableOpacity>
       )}
     </View>
@@ -41,6 +43,8 @@ const Field = ({ label, icon, value, onChange, placeholder, secure, keyboard, to
 
 export default function Register() {
   const router = useRouter();
+  const { colorScheme } = useTheme();
+  const C = Colors[colorScheme];
   const [form, setForm] = useState({ username: '', email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -79,26 +83,28 @@ export default function Register() {
   };
 
   return (
-    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[s.root, { backgroundColor: C.background }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-        <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-          <FontAwesome name="arrow-left" size={16} color="#848E9C" />
+        <TouchableOpacity style={[s.backBtn, { backgroundColor: C.surface, borderColor: C.border }]} onPress={() => router.back()}>
+          <FontAwesome name="arrow-left" size={16} color={C.iconDefault} />
         </TouchableOpacity>
-        <Text style={s.brand}>Ticksnap</Text>
-        <Text style={s.title}>Create account</Text>
+        <Text style={[s.brand, { color: C.accent }]}>Ticksnap</Text>
+        <Text style={[s.title, { color: C.text }]}>Create account</Text>
         <View style={s.form}>
-          <Field label="Username" icon="at" value={form.username} onChange={(v: string) => updateForm('username', v)} placeholder="trader" />
-          <Field label="Email" icon="envelope-o" value={form.email} onChange={(v: string) => updateForm('email', v)} placeholder="you@email.com" keyboard="email-address" />
-          <Field label="Password" icon="lock" value={form.password} onChange={(v: string) => updateForm('password', v)} placeholder="Min. 8 chars" secure={!showPassword} toggleSecure={() => setShowPassword(!showPassword)} />
+          <Field label="Username" icon="at" value={form.username} onChange={(v: string) => updateForm('username', v)} placeholder="trader" C={C} />
+          <Field label="Email" icon="envelope-o" value={form.email} onChange={(v: string) => updateForm('email', v)} placeholder="you@email.com" keyboard="email-address" C={C} />
+          <Field label="Password" icon="lock" value={form.password} onChange={(v: string) => updateForm('password', v)} placeholder="Min. 8 chars" secure={!showPassword} toggleSecure={() => setShowPassword(!showPassword)} C={C} />
           <TouchableOpacity style={s.termsRow} onPress={() => setAgreeTerms(!agreeTerms)}>
-            <View style={[s.checkbox, agreeTerms && s.checkboxOn]}>{agreeTerms && <FontAwesome name="check" size={10} color="#0B0E11" />}</View>
-            <Text style={s.termsText}>I agree to the <Text style={s.termsLink}>Terms & Policy</Text></Text>
+            <View style={[s.checkbox, { borderColor: C.border, backgroundColor: C.surface }, agreeTerms && { backgroundColor: C.accent, borderColor: C.accent }]}>
+              {agreeTerms && <FontAwesome name="check" size={10} color={C.textInverse} />}
+            </View>
+            <Text style={[s.termsText, { color: C.textMuted }]}>I agree to the <Text style={[s.termsLink, { color: C.accent }]}>Terms & Policy</Text></Text>
           </TouchableOpacity>
           <TouchableOpacity style={[s.primaryBtn, loading && s.disabled]} onPress={handleRegister} disabled={loading}>
-            {loading ? <ActivityIndicator color="#0B0E11" /> : <Text style={s.primaryBtnText}>Create Account →</Text>}
+            {loading ? <ActivityIndicator color={C.textInverse} /> : <Text style={[s.primaryBtnText, { color: C.textInverse }]}>Create Account →</Text>}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(auth)/login')} style={s.linkBtn}>
-            <Text style={s.linkText}>Already have an account? <Text style={s.linkBold}>Log In</Text></Text>
+            <Text style={[s.linkText, { color: C.textMuted }]}>Already have an account? <Text style={[s.linkBold, { color: C.accent }]}>Log In</Text></Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -107,27 +113,26 @@ export default function Register() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B0E11' },
+  root: { flex: 1 },
   scroll: { paddingHorizontal: 24, paddingTop: 64, paddingBottom: 40 },
-  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1E2026', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2B2F36', marginBottom: 32 },
-  brand: { fontSize: 17, fontWeight: '900', fontStyle: 'italic', color: '#F0B90B', marginBottom: 4 },
-  title: { fontSize: 28, fontWeight: '900', color: '#EAECEF', marginBottom: 32 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, marginBottom: 32 },
+  brand: { fontSize: 17, fontWeight: '900', fontStyle: 'italic', marginBottom: 4 },
+  title: { fontSize: 28, fontWeight: '900', marginBottom: 32 },
   form: { gap: 16 },
   fieldWrap: { gap: 8 },
-  label: { fontSize: 11, fontWeight: '800', color: '#848E9C', textTransform: 'uppercase', letterSpacing: 1.2 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E2026', borderRadius: 16, paddingHorizontal: 16, height: 56, borderWidth: 1, borderColor: '#2B2F36' },
+  label: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.2 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingHorizontal: 16, height: 56, borderWidth: 1 },
   inputIcon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 15, fontWeight: '600', color: '#EAECEF' },
+  input: { flex: 1, fontSize: 15, fontWeight: '600' },
   eyeBtn: { padding: 6 },
   termsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: '#2B2F36', backgroundColor: '#1E2026', alignItems: 'center', justifyContent: 'center' },
-  checkboxOn: { backgroundColor: '#F0B90B', borderColor: '#F0B90B' },
-  termsText: { fontSize: 13, color: '#848E9C', flex: 1 },
-  termsLink: { color: '#F0B90B', fontWeight: '600' },
+  checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  termsText: { fontSize: 13, flex: 1 },
+  termsLink: { fontWeight: '600' },
   primaryBtn: { height: 56, borderRadius: 16, backgroundColor: '#F0B90B', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   disabled: { opacity: 0.6 },
-  primaryBtnText: { fontSize: 15, fontWeight: '900', color: '#0B0E11' },
+  primaryBtnText: { fontSize: 15, fontWeight: '900' },
   linkBtn: { alignItems: 'center', paddingVertical: 4 },
-  linkText: { fontSize: 13, color: '#848E9C' },
-  linkBold: { color: '#F0B90B', fontWeight: '700' },
+  linkText: { fontSize: 13 },
+  linkBold: { fontWeight: '700' },
 });

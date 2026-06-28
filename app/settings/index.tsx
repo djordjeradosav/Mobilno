@@ -23,6 +23,7 @@ export default function Settings() {
     const router = useRouter();
     const { user } = useAuth();
     const { theme, setTheme, colorScheme } = useTheme();
+    const C = Colors[colorScheme];
     
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -62,80 +63,80 @@ export default function Settings() {
     };
 
     return (
-        <SafeAreaView style={[s.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
+        <SafeAreaView style={[s.root, { backgroundColor: C.background }]} edges={['top']}>
             <View style={s.header}>
                 <TouchableOpacity 
-                    style={[s.backBtn, { backgroundColor: colorScheme === 'dark' ? '#1E2026' : '#F5F5F5', borderColor: colorScheme === 'dark' ? '#2B2F36' : '#E0E0E0' }]} 
+                    style={[s.backBtn, { backgroundColor: C.surface, borderColor: C.border }]} 
                     onPress={() => router.back()}
                 >
-                    <FontAwesome name="arrow-left" size={16} color={colorScheme === 'dark' ? '#848E9C' : '#666'} />
+                    <FontAwesome name="arrow-left" size={16} color={C.iconDefault} />
                 </TouchableOpacity>
-                <Text style={[s.headerTitle, { color: Colors[colorScheme].text }]}>Settings</Text>
+                <Text style={[s.headerTitle, { color: C.text }]}>Settings</Text>
                 <View style={{ width: 40 }} />
             </View>
 
             <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
                 {/* Theme Section */}
                 <View style={s.section}>
-                    <Text style={s.sectionTitle}>Appearance</Text>
-                    <View style={[s.settingRow, { backgroundColor: colorScheme === 'dark' ? '#1E2026' : '#F9F9F9', borderColor: colorScheme === 'dark' ? '#2B2F36' : '#E0E0E0' }]}>
+                    <Text style={[s.sectionTitle, { color: C.accent }]}>Appearance</Text>
+                    <View style={[s.settingRow, { backgroundColor: C.surface, borderColor: C.border }]}>
                         <View style={s.settingInfo}>
                             <FontAwesome 
                                 name={colorScheme === 'dark' ? "moon-o" : "sun-o"} 
                                 size={18} 
-                                color="#F0B90B" 
+                                color={C.accent} 
                                 style={s.settingIcon} 
                             />
-                            <Text style={[s.settingLabel, { color: Colors[colorScheme].text }]}>Theme</Text>
+                            <Text style={[s.settingLabel, { color: C.text }]}>Theme</Text>
                         </View>
                         <TouchableOpacity 
-                            style={[s.themeToggle, { backgroundColor: colorScheme === 'dark' ? '#2B2F36' : '#E0E0E0' }]}
+                            style={[s.themeToggle, { backgroundColor: C.border }]}
                             onPress={() => {
                                 if (theme === 'system') setTheme('light');
                                 else if (theme === 'light') setTheme('dark');
                                 else setTheme('system');
                             }}
                         >
-                            <Text style={s.themeText}>
+                            <Text style={[s.themeText, { color: C.textMuted }]}>
                                 {theme.charAt(0).toUpperCase() + theme.slice(1)}
                             </Text>
                         </TouchableOpacity>
                     </View>
-                    <Text style={s.helperText}>Tap to switch between Light, Dark, and System theme.</Text>
+                    <Text style={[s.helperText, { color: C.textMuted }]}>Tap to switch between Light, Dark, and System theme.</Text>
                 </View>
 
-                <View style={s.divider} />
+                <View style={[s.divider, { backgroundColor: C.border }]} />
 
                 {/* Password Reset Section */}
                 <View style={s.section}>
-                    <Text style={s.sectionTitle}>Security</Text>
-                    <Text style={[s.subTitle, { color: Colors[colorScheme].text }]}>Change Password</Text>
+                    <Text style={[s.sectionTitle, { color: C.accent }]}>Security</Text>
+                    <Text style={[s.subTitle, { color: C.text }]}>Change Password</Text>
                     
                     <View style={s.fieldWrap}>
-                        <View style={[s.inputRow, { backgroundColor: colorScheme === 'dark' ? '#1E2026' : '#F9F9F9', borderColor: colorScheme === 'dark' ? '#2B2F36' : '#E0E0E0' }]}>
-                            <FontAwesome name="lock" size={15} color="#848E9C" style={s.inputIcon} />
+                        <View style={[s.inputRow, { backgroundColor: C.surface, borderColor: C.border }]}>
+                            <FontAwesome name="lock" size={15} color={C.iconDefault} style={s.inputIcon} />
                             <TextInput
-                                style={[s.input, { color: Colors[colorScheme].text }]}
+                                style={[s.input, { color: C.text }]}
                                 placeholder="New Password"
-                                placeholderTextColor={colorScheme === 'dark' ? "#474D57" : "#999"}
+                                placeholderTextColor={C.placeholder}
                                 value={newPassword}
                                 onChangeText={setNewPassword}
                                 secureTextEntry={!showPassword}
                                 autoCapitalize="none"
                             />
                             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={s.eyeBtn}>
-                                <FontAwesome name={showPassword ? 'eye' : 'eye-slash'} size={15} color="#848E9C" />
+                                <FontAwesome name={showPassword ? 'eye' : 'eye-slash'} size={15} color={C.iconDefault} />
                             </TouchableOpacity>
                         </View>
                     </View>
 
                     <View style={s.fieldWrap}>
-                        <View style={[s.inputRow, { backgroundColor: colorScheme === 'dark' ? '#1E2026' : '#F9F9F9', borderColor: colorScheme === 'dark' ? '#2B2F36' : '#E0E0E0' }]}>
-                            <FontAwesome name="lock" size={15} color="#848E9C" style={s.inputIcon} />
+                        <View style={[s.inputRow, { backgroundColor: C.surface, borderColor: C.border }]}>
+                            <FontAwesome name="lock" size={15} color={C.iconDefault} style={s.inputIcon} />
                             <TextInput
-                                style={[s.input, { color: Colors[colorScheme].text }]}
+                                style={[s.input, { color: C.text }]}
                                 placeholder="Confirm New Password"
-                                placeholderTextColor={colorScheme === 'dark' ? "#474D57" : "#999"}
+                                placeholderTextColor={C.placeholder}
                                 value={confirmPassword}
                                 onChangeText={setConfirmPassword}
                                 secureTextEntry={!showPassword}
@@ -145,26 +146,26 @@ export default function Settings() {
                     </View>
 
                     <TouchableOpacity 
-                        style={[s.primaryBtn, loading && s.disabled]} 
+                        style={[s.primaryBtn, { backgroundColor: C.accent }, loading && s.disabled]} 
                         onPress={handleResetPassword}
                         disabled={loading}
                     >
-                        {loading ? <ActivityIndicator color="#0B0E11" /> : <Text style={s.primaryBtnText}>Update Password</Text>}
+                        {loading ? <ActivityIndicator color={C.textInverse} /> : <Text style={[s.primaryBtnText, { color: C.textInverse }]}>Update Password</Text>}
                     </TouchableOpacity>
                 </View>
 
-                <View style={s.divider} />
+                <View style={[s.divider, { backgroundColor: C.border }]} />
 
                 {/* Account Info */}
                 <View style={s.section}>
-                    <Text style={s.sectionTitle}>Account</Text>
+                    <Text style={[s.sectionTitle, { color: C.accent }]}>Account</Text>
                     <View style={s.infoRow}>
-                        <Text style={s.infoLabel}>Email</Text>
-                        <Text style={[s.infoValue, { color: Colors[colorScheme].text }]}>{user?.email}</Text>
+                        <Text style={[s.infoLabel, { color: C.textMuted }]}>Email</Text>
+                        <Text style={[s.infoValue, { color: C.text }]}>{user?.email}</Text>
                     </View>
                     <View style={s.infoRow}>
-                        <Text style={s.infoLabel}>User ID</Text>
-                        <Text style={[s.infoValue, { color: Colors[colorScheme].text }]} numberOfLines={1}>{user?.id}</Text>
+                        <Text style={[s.infoLabel, { color: C.textMuted }]}>User ID</Text>
+                        <Text style={[s.infoValue, { color: C.text }]} numberOfLines={1}>{user?.id}</Text>
                     </View>
                 </View>
             </ScrollView>
@@ -173,7 +174,7 @@ export default function Settings() {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0B0E11' },
+    root: { flex: 1 },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -183,60 +184,55 @@ const s = StyleSheet.create({
     },
     backBtn: {
         width: 40, height: 40, borderRadius: 12,
-        backgroundColor: '#1E2026',
         alignItems: 'center', justifyContent: 'center',
-        borderWidth: 1, borderColor: '#2B2F36',
+        borderWidth: 1,
     },
-    headerTitle: { fontSize: 18, fontWeight: '800', color: '#EAECEF' },
+    headerTitle: { fontSize: 18, fontWeight: '800' },
     scroll: { paddingHorizontal: 20, paddingBottom: 40 },
     section: { marginTop: 24 },
-    sectionTitle: { fontSize: 13, fontWeight: '800', color: '#F0B90B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 },
-    subTitle: { fontSize: 15, fontWeight: '700', color: '#EAECEF', marginBottom: 12 },
+    sectionTitle: { fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 },
+    subTitle: { fontSize: 15, fontWeight: '700', marginBottom: 12 },
     settingRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#1E2026',
         padding: 16,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#2B2F36',
     },
     settingInfo: { flexDirection: 'row', alignItems: 'center' },
     settingIcon: { marginRight: 12 },
-    settingLabel: { fontSize: 15, fontWeight: '600', color: '#EAECEF' },
+    settingLabel: { fontSize: 15, fontWeight: '600' },
     themeToggle: {
-        backgroundColor: '#2B2F36',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 8,
     },
-    themeText: { fontSize: 12, fontWeight: '700', color: '#848E9C' },
-    helperText: { fontSize: 12, color: '#848E9C', marginTop: 8, fontStyle: 'italic' },
-    divider: { height: 1, backgroundColor: '#1E2026', marginTop: 32 },
+    themeText: { fontSize: 12, fontWeight: '700' },
+    helperText: { fontSize: 12, marginTop: 8, fontStyle: 'italic' },
+    divider: { height: 1, marginTop: 32 },
     fieldWrap: { marginBottom: 12 },
     inputRow: {
         flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#1E2026', borderRadius: 16,
+        borderRadius: 16,
         paddingHorizontal: 16, height: 56,
-        borderWidth: 1, borderColor: '#2B2F36',
+        borderWidth: 1,
     },
     inputIcon: { marginRight: 12 },
-    input: { flex: 1, fontSize: 15, fontWeight: '600', color: '#EAECEF' },
+    input: { flex: 1, fontSize: 15, fontWeight: '600' },
     eyeBtn: { padding: 6 },
     primaryBtn: {
         height: 56, borderRadius: 16,
-        backgroundColor: '#F0B90B',
         alignItems: 'center', justifyContent: 'center',
         marginTop: 8,
     },
     disabled: { opacity: 0.6 },
-    primaryBtnText: { fontSize: 15, fontWeight: '900', color: '#0B0E11' },
+    primaryBtnText: { fontSize: 15, fontWeight: '900' },
     infoRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: 12,
     },
-    infoLabel: { fontSize: 14, color: '#848E9C' },
-    infoValue: { fontSize: 14, fontWeight: '600', color: '#EAECEF', flex: 1, textAlign: 'right', marginLeft: 20 },
+    infoLabel: { fontSize: 14 },
+    infoValue: { fontSize: 14, fontWeight: '600', flex: 1, textAlign: 'right', marginLeft: 20 },
 });

@@ -16,7 +16,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColorScheme } from '@/components/useColorScheme';
+import { useTheme } from '@/components/ThemeContext';
 import Colors from '@/constants/Colors';
 import { getForexNews, NewsItem as AVNewsItem } from '@/lib/news';
 import ProfilePreviewSheet from '@/components/ProfilePreviewSheet';
@@ -42,8 +42,8 @@ function timeAgo(ts: number) {
 export default function Search() {
     const router = useRouter();
     const { user } = useAuth();
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const { colorScheme } = useTheme();
+    const C = Colors[colorScheme];
     const [searchQuery, setSearchQuery] = useState('');
     const [results, setResults] = useState<UserProfile[]>([]);
     const [news, setNews] = useState<AVNewsItem[]>([]);
@@ -133,32 +133,32 @@ export default function Search() {
     };
 
     return (
-        <SafeAreaView style={[s.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
+        <SafeAreaView style={[s.root, { backgroundColor: C.background }]} edges={['top']}>
             {/* Header */}
             <View style={s.header}>
-                <Text style={[s.headerTitle, { color: Colors[colorScheme].text }]}>Explore</Text>
-                {loadingNews && <ActivityIndicator size="small" color="#F0B90B" />}
+                <Text style={[s.headerTitle, { color: C.text }]}>Explore</Text>
+                {loadingNews && <ActivityIndicator size="small" color={C.accent} />}
             </View>
 
-            <View style={[s.dividerLine, { backgroundColor: isDark ? '#2B2F36' : '#E0E0E0' }]} />
+            <View style={[s.dividerLine, { backgroundColor: C.border }]} />
 
             {/* Search bar */}
-            <View style={[s.searchBar, { backgroundColor: isDark ? '#1E2026' : '#F9F9F9', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}>
-                <FontAwesome name="search" size={14} color="#848E9C" />
+            <View style={[s.searchBar, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <FontAwesome name="search" size={14} color={C.iconDefault} />
                 <TextInput
-                    style={[s.searchInput, { color: Colors[colorScheme].text }]}
+                    style={[s.searchInput, { color: C.text }]}
                     placeholder="Search traders…"
-                    placeholderTextColor={isDark ? "#474D57" : "#999"}
+                    placeholderTextColor={C.placeholder}
                     value={searchQuery}
                     onChangeText={handleSearch}
                     autoCapitalize="none"
                     autoCorrect={false}
                 />
                 {loading
-                    ? <ActivityIndicator size="small" color="#F0B90B" />
+                    ? <ActivityIndicator size="small" color={C.accent} />
                     : searchQuery.length > 0 && (
                         <TouchableOpacity onPress={() => { setSearchQuery(''); fetchAllUsers(); }}>
-                            <FontAwesome name="times-circle" size={14} color="#848E9C" />
+                            <FontAwesome name="times-circle" size={14} color={C.iconDefault} />
                         </TouchableOpacity>
                     )}
             </View>
@@ -168,30 +168,30 @@ export default function Search() {
                 {/* Traders */}
                 {results.length > 0 && (
                     <View style={s.section}>
-                        <Text style={s.sectionTitle}>Traders</Text>
+                        <Text style={[s.sectionTitle, { color: C.textMuted }]}>Traders</Text>
                         {results.map(item => (
                             <TouchableOpacity
                                 key={item.id}
-                                style={s.userCard}
+                                style={[s.userCard, { backgroundColor: C.card, borderBottomColor: C.border }]}
                                 onPress={() => openPreview(item.id)}
                                 activeOpacity={0.85}
                             >
                                 <Avatar url={item.avatar_url} username={item.username} size={42} />
                                 <View style={s.userInfo}>
                                     <View style={s.userNameRow}>
-                                        <Text style={[s.username, { color: Colors[colorScheme].text }]}>@{item.username}</Text>
+                                        <Text style={[s.username, { color: C.text }]}>@{item.username}</Text>
                                         {item.is_verified && (
-                                            <MaterialIcons name="verified" size={12} color="#F0B90B" />
+                                            <MaterialIcons name="verified" size={12} color={C.accent} />
                                         )}
                                     </View>
-                                    <Text style={s.userTier}>{item.subscription_tier} member</Text>
+                                    <Text style={[s.userTier, { color: C.textMuted }]}>{item.subscription_tier} member</Text>
                                 </View>
                                 {user?.id !== item.id && (
                                     <TouchableOpacity
-                                        style={[s.followBtn, followingIds.has(item.id) && s.followingBtn]}
+                                        style={[s.followBtn, { backgroundColor: 'rgba(240,185,11,0.15)', borderColor: C.accent }, followingIds.has(item.id) && { backgroundColor: C.surface, borderColor: C.border }]}
                                         onPress={() => toggleFollow(item.id)}
                                     >
-                                        <Text style={[s.followBtnText, followingIds.has(item.id) && s.followingBtnText]}>
+                                        <Text style={[s.followBtnText, { color: C.accent }, followingIds.has(item.id) && { color: C.textMuted }]}>
                                             {followingIds.has(item.id) ? 'Following' : 'Follow'}
                                         </Text>
                                     </TouchableOpacity>
@@ -205,31 +205,31 @@ export default function Search() {
                 {searchQuery.length > 0 && results.length === 0 && tradeResults.length === 0 && !loading && (
                     <View style={s.noResults}>
                         <Text style={s.noResultsIcon}>🔍</Text>
-                        <Text style={s.noResultsText}>No results found for "{searchQuery}"</Text>
+                        <Text style={[s.noResultsText, { color: C.textMuted }]}>No results found for "{searchQuery}"</Text>
                     </View>
                 )}
 
                 {/* Trade results */}
                 {tradeResults.length > 0 && (
                     <View style={s.section}>
-                        <Text style={s.sectionTitle}>Trades for {searchQuery.trim().toUpperCase()}</Text>
+                        <Text style={[s.sectionTitle, { color: C.textMuted }]}>Trades for {searchQuery.trim().toUpperCase()}</Text>
                         {tradeResults.map(trade => (
                             <TouchableOpacity
                                 key={trade.id}
-                                style={s.tradeCard}
+                                style={[s.tradeCard, { backgroundColor: C.card, borderBottomColor: C.border }]}
                                 onPress={() => { setSelectedTrade(trade); setTradeModalVisible(true); }}
                                 activeOpacity={0.85}
                             >
-                                <View style={s.tradeBadge}>
-                                    <Text style={s.tradeBadgeText}>{trade.symbol}</Text>
+                                <View style={[s.tradeBadge, { backgroundColor: C.surface, borderColor: C.accent }]}>
+                                    <Text style={[s.tradeBadgeText, { color: C.accent }]}>{trade.symbol}</Text>
                                 </View>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={[s.tradeType, { color: Colors[colorScheme].text }]}>{trade.trade_type ?? 'Trade'}</Text>
-                                    <Text style={s.tradeUser}>@{(trade as any).users?.username ?? ''}</Text>
+                                    <Text style={[s.tradeType, { color: C.text }]}>{trade.trade_type ?? 'Trade'}</Text>
+                                    <Text style={[s.tradeUser, { color: C.textSecondary }]}>@{(trade as any).users?.username ?? ''}</Text>
                                 </View>
                                 <Text style={[
                                     s.tradePL,
-                                    { color: (trade.money_value ?? 0) >= 0 ? '#0ECB81' : '#F6465D' }
+                                    { color: (trade.money_value ?? 0) >= 0 ? C.success : C.danger }
                                 ]}>
                                     {(trade.money_value ?? 0) >= 0 ? '+' : ''}{(trade.money_value ?? 0).toFixed(2)}$
                                 </Text>
@@ -240,37 +240,37 @@ export default function Search() {
 
                 {/* News */}
                 <View style={s.section}>
-                    <Text style={s.sectionTitle}>Market News</Text>
+                    <Text style={[s.sectionTitle, { color: C.textMuted }]}>Market News</Text>
                     {news.map(item => (
                         <TouchableOpacity
                             key={item.id}
-                            style={s.newsCard}
+                            style={[s.newsCard, { backgroundColor: C.card, borderBottomColor: C.border }]}
                             onPress={() => Linking.openURL(item.url).catch(() => { })}
                             activeOpacity={0.8}
                         >
                             <View style={s.newsContent}>
                                 <View style={s.newsTop}>
                                     <View style={[s.sentimentDot, {
-                                        backgroundColor: item.sentiment === 'bullish' ? '#0ECB81'
-                                            : item.sentiment === 'bearish' ? '#F6465D' : '#848E9C'
+                                        backgroundColor: item.sentiment === 'bullish' ? C.success
+                                            : item.sentiment === 'bearish' ? C.danger : C.textMuted
                                     }]} />
-                                    <Text style={s.newsSource}>{item.source}</Text>
-                                    <Text style={s.newsDate}>{timeAgo(item.datetime)}</Text>
+                                    <Text style={[s.newsSource, { color: C.accent }]}>{item.source}</Text>
+                                    <Text style={[s.newsDate, { color: C.textSecondary }]}>{timeAgo(item.datetime)}</Text>
                                 </View>
-                                <Text style={[s.newsTitle, { color: Colors[colorScheme].text }]} numberOfLines={2}>{item.headline}</Text>
-                                <Text style={[s.newsSummary, { color: isDark ? '#848E9C' : '#666' }]} numberOfLines={2}>{item.summary}</Text>
+                                <Text style={[s.newsTitle, { color: C.text }]} numberOfLines={2}>{item.headline}</Text>
+                                <Text style={[s.newsSummary, { color: C.textMuted }]} numberOfLines={2}>{item.summary}</Text>
                                 {item.tickers.length > 0 && (
                                     <View style={s.tickerRow}>
                                         {item.tickers.map(t => (
-                                            <View key={t} style={s.tickerBadge}>
-                                                <Text style={s.tickerText}>{t}</Text>
+                                            <View key={t} style={[s.tickerBadge, { backgroundColor: C.surface, borderColor: C.border }]}>
+                                                <Text style={[s.tickerText, { color: C.textMuted }]}>{t}</Text>
                                             </View>
                                         ))}
                                     </View>
                                 )}
                             </View>
                             {item.image && (
-                                <Image source={{ uri: item.image }} style={s.newsImg} />
+                                <Image source={{ uri: item.image }} style={[s.newsImg, { backgroundColor: C.surface }]} />
                             )}
                         </TouchableOpacity>
                     ))}
@@ -299,7 +299,7 @@ export default function Search() {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0B0E11' },
+    root: { flex: 1 },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -307,26 +307,24 @@ const s = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 16,
     },
-    headerTitle: { fontSize: 20, fontWeight: '900', color: '#EAECEF' },
-    dividerLine: { height: 1, backgroundColor: '#2B2F36' },
+    headerTitle: { fontSize: 20, fontWeight: '900' },
+    dividerLine: { height: 1 },
 
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#1E2026',
         margin: 16,
         paddingHorizontal: 14,
         height: 48,
         borderRadius: 8,
         gap: 10,
         borderWidth: 1,
-        borderColor: '#2B2F36',
     },
-    searchInput: { flex: 1, fontSize: 14, fontWeight: '500', color: '#EAECEF' },
+    searchInput: { flex: 1, fontSize: 14, fontWeight: '500' },
 
     section: { paddingHorizontal: 16, marginBottom: 8 },
     sectionTitle: {
-        fontSize: 11, fontWeight: '800', color: '#848E9C',
+        fontSize: 11, fontWeight: '800',
         textTransform: 'uppercase', letterSpacing: 1.2,
         marginBottom: 12,
     },
@@ -335,80 +333,68 @@ const s = StyleSheet.create({
     userCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#161A1E',
         padding: 14,
         borderRadius: 0,
         borderBottomWidth: 1,
-        borderBottomColor: '#2B2F36',
         gap: 12,
     },
     userInfo: { flex: 1 },
     userNameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
-    username: { fontSize: 14, fontWeight: '700', color: '#EAECEF' },
-    userTier: { fontSize: 11, color: '#848E9C', fontWeight: '600', textTransform: 'capitalize' },
+    username: { fontSize: 14, fontWeight: '700' },
+    userTier: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
     followBtn: {
-        backgroundColor: 'rgba(240,185,11,0.15)',
         paddingHorizontal: 14,
         paddingVertical: 7,
         borderRadius: 4,
         borderWidth: 1,
-        borderColor: '#F0B90B',
     },
-    followingBtn: { backgroundColor: '#1E2026', borderColor: '#2B2F36' },
-    followBtnText: { fontSize: 12, fontWeight: '700', color: '#F0B90B' },
-    followingBtnText: { color: '#848E9C' },
+    followBtnText: { fontSize: 12, fontWeight: '700' },
 
     // No results
     noResults: { alignItems: 'center', paddingTop: 48, gap: 10 },
     noResultsIcon: { fontSize: 40 },
-    noResultsText: { fontSize: 14, color: '#848E9C', fontWeight: '600' },
+    noResultsText: { fontSize: 14, fontWeight: '600' },
 
     // News
     newsCard: {
         flexDirection: 'row',
-        backgroundColor: '#161A1E',
         padding: 14,
         borderRadius: 0,
         borderBottomWidth: 1,
-        borderBottomColor: '#2B2F36',
         gap: 12,
     },
     newsContent: { flex: 1, gap: 6 },
     newsTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     sentimentDot: { width: 6, height: 6, borderRadius: 3 },
     newsSource: {
-        fontSize: 10, fontWeight: '800', color: '#F0B90B',
+        fontSize: 10, fontWeight: '800',
         textTransform: 'uppercase', flex: 1,
     },
-    newsDate: { fontSize: 10, color: '#474D57', fontWeight: '600' },
-    newsTitle: { fontSize: 13, fontWeight: '700', color: '#EAECEF', lineHeight: 19 },
-    newsSummary: { fontSize: 12, color: '#848E9C', lineHeight: 17 },
-    newsImg: { width: 72, height: 72, borderRadius: 6, backgroundColor: '#1E2026', alignSelf: 'center' },
+    newsDate: { fontSize: 10, fontWeight: '600' },
+    newsTitle: { fontSize: 13, fontWeight: '700', lineHeight: 19 },
+    newsSummary: { fontSize: 12, lineHeight: 17 },
+    newsImg: { width: 72, height: 72, borderRadius: 6, alignSelf: 'center' },
     tickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
-    tickerBadge: { backgroundColor: '#1E2026', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#2B2F36' },
-    tickerText: { fontSize: 9, fontWeight: '700', color: '#848E9C' },
+    tickerBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1 },
+    tickerText: { fontSize: 9, fontWeight: '700' },
 
     // Trade card
     tradeCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#161A1E',
         padding: 14,
         borderRadius: 0,
         borderBottomWidth: 1,
-        borderBottomColor: '#2B2F36',
         gap: 12,
     },
     tradeBadge: {
-        backgroundColor: '#1E2026',
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 6,
         borderWidth: 1,
-        borderColor: '#F0B90B',
     },
-    tradeBadgeText: { fontSize: 12, fontWeight: '800', color: '#F0B90B' },
-    tradeType: { fontSize: 13, fontWeight: '700', color: '#EAECEF' },
-    tradeUser: { fontSize: 11, color: '#848E9C', fontWeight: '500', marginTop: 2 },
+    tradeBadgeText: { fontSize: 12, fontWeight: '800' },
+    tradeType: { fontSize: 13, fontWeight: '700' },
+    tradeUser: { fontSize: 11, fontWeight: '500', marginTop: 2 },
     tradePL: { fontSize: 14, fontWeight: '900' },
 });

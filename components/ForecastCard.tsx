@@ -9,6 +9,8 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/components/ThemeContext';
+import Colors from '@/constants/Colors';
 
 const { width } = Dimensions.get('window');
 
@@ -19,7 +21,6 @@ const { width } = Dimensions.get('window');
 export function getTradingViewImageUrl(url: string | null): string | null {
   if (!url) return null;
   
-  // Handle TradingView sharing links: https://www.tradingview.com/x/ABCDEFG/
   if (url.includes('tradingview.com/x/')) {
     const cleanUrl = url.split('?')[0].replace(/\/$/, '');
     if (!cleanUrl.endsWith('.png')) {
@@ -28,12 +29,7 @@ export function getTradingViewImageUrl(url: string | null): string | null {
     return cleanUrl;
   }
   
-  // Handle TradingView chart links: https://www.tradingview.com/chart/SYMBOL/ID/
-  // These often don't have direct image URLs but we can try to help or at least normalize
   if (url.includes('tradingview.com/chart/')) {
-    // If it's a chart link, it's not a direct image. 
-    // Usually users should use the "Copy image" or "Copy link to chart image" feature which gives /x/ links.
-    // But we can try to detect if they pasted a link that might be an image.
     return url;
   }
 
@@ -51,13 +47,13 @@ export type Trade = {
   trade_date: string;
   tradingview_link: string | null;
   notes: string | null;
-  content?: string | null; // Legacy field
+  content?: string | null;
   chart_image_url: string | null;
   likes_count: number;
-  comments_count?: number; // Added field
+  comments_count?: number;
   created_at: string;
-  currency_pair?: string; // Legacy field
-  profit?: number; // Legacy field
+  currency_pair?: string;
+  profit?: number;
   users?: {
     username: string;
     avatar_url: string | null;
@@ -65,7 +61,6 @@ export type Trade = {
   };
 };
 
-// Keep Forecast as alias for backward compatibility during migration if needed
 export type Forecast = Trade;
 
 type Props = {
@@ -123,40 +118,43 @@ export default function ForecastCard({
   isLiked = false,
 }: Props) {
   const router = useRouter();
+  const { colorScheme } = useTheme();
+  const C = Colors[colorScheme];
+
   const user = forecast.users;
   const isProfitable = (forecast.money_value || 0) >= 0;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.95}>
+    <TouchableOpacity style={[styles.card, { backgroundColor: C.card, shadowColor: C.text }]} onPress={onPress} activeOpacity={0.95}>
       <View style={styles.cardHeader}>
         <TouchableOpacity onPress={() => router.push(`/user-profile?userId=${forecast.user_id}`)} style={styles.userClickable}>
           <Avatar url={user?.avatar_url} username={user?.username ?? '?'} />
           <View style={styles.userInfo}>
             <View style={styles.userNameRow}>
-              <Text style={styles.username}>@{user?.username ?? 'unknown'}</Text>
+              <Text style={[styles.username, { color: C.text }]}>@{user?.username ?? 'unknown'}</Text>
               {user?.is_verified && (
-                <MaterialIcons name="verified" size={14} color="#F5C400" />
+                <MaterialIcons name="verified" size={14} color={C.accent} />
               )}
             </View>
-            <Text style={styles.time}>{timeAgo(forecast.created_at)}</Text>
+            <Text style={[styles.time, { color: C.textMuted }]}>{timeAgo(forecast.created_at)}</Text>
           </View>
         </TouchableOpacity>
         <View style={styles.badgeRow}>
           {forecast.trade_type && (
-            <View style={[styles.typeBadge, { backgroundColor: forecast.trade_type === 'Buy' ? '#EBF8FF' : '#FFF5F5' }]}>
-              <Text style={[styles.typeBadgeText, { color: forecast.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]}>{forecast.trade_type}</Text>
+            <View style={[styles.typeBadge, { backgroundColor: forecast.trade_type === 'Buy' ? 'rgba(14,203,129,0.12)' : 'rgba(246,70,93,0.12)' }]}>
+              <Text style={[styles.typeBadgeText, { color: forecast.trade_type === 'Buy' ? C.success : C.danger }]}>{forecast.trade_type}</Text>
             </View>
           )}
           <View
             style={[
               styles.pairBadge,
-              { backgroundColor: isProfitable ? '#ecfdf5' : '#fef2f2' },
+              { backgroundColor: isProfitable ? 'rgba(14,203,129,0.12)' : 'rgba(246,70,93,0.12)' },
             ]}
           >
             <Text
               style={[
                 styles.pairText,
-                { color: isProfitable ? '#059669' : '#dc2626' },
+                { color: isProfitable ? C.success : C.danger },
               ]}
             >
               {forecast.symbol || forecast.currency_pair || 'UNKNOWN'}
@@ -166,7 +164,7 @@ export default function ForecastCard({
       </View>
 
       {forecast.notes || forecast.content ? (
-        <Text style={styles.content} numberOfLines={3}>
+        <Text style={[styles.content, { color: C.textSecondary }]} numberOfLines={3}>
           {forecast.notes || forecast.content}
         </Text>
       ) : null}
@@ -174,22 +172,22 @@ export default function ForecastCard({
       {forecast.chart_image_url && (
         <Image
           source={{ uri: getTradingViewImageUrl(forecast.chart_image_url) || '' }}
-          style={styles.chartImage}
+          style={[styles.chartImage, { backgroundColor: C.surface }]}
           resizeMode="cover"
         />
       )}
 
       <View style={styles.cardFooter}>
-        <View style={styles.profitBadge}>
+        <View style={[styles.profitBadge, { backgroundColor: C.surface }]}>
           <FontAwesome
             name={isProfitable ? 'arrow-up' : 'arrow-down'}
             size={11}
-            color={isProfitable ? '#059669' : '#dc2626'}
+            color={isProfitable ? C.success : C.danger}
           />
           <Text
             style={[
               styles.profitText,
-              { color: isProfitable ? '#059669' : '#dc2626' },
+              { color: isProfitable ? C.success : C.danger },
             ]}
           >
             {isProfitable ? '+' : ''}${Math.abs(forecast.money_value || 0).toFixed(2)}
@@ -201,14 +199,14 @@ export default function ForecastCard({
             <FontAwesome
               name={isLiked ? 'heart' : 'heart-o'}
               size={16}
-              color={isLiked ? '#ef4444' : '#999'}
+              color={isLiked ? C.danger : C.iconDefault}
             />
-            <Text style={styles.actionCount}>{forecast.likes_count}</Text>
+            <Text style={[styles.actionCount, { color: C.textSecondary }]}>{forecast.likes_count}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionBtn} onPress={onPress}>
-            <FontAwesome name="comment-o" size={16} color="#999" />
-            <Text style={styles.actionCount}>{forecast.comments_count || 0}</Text>
+            <FontAwesome name="comment-o" size={16} color={C.iconDefault} />
+            <Text style={[styles.actionCount, { color: C.textSecondary }]}>{forecast.comments_count || 0}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -218,11 +216,9 @@ export default function ForecastCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
@@ -235,263 +231,19 @@ const styles = StyleSheet.create({
   avatarInitial: { fontWeight: '800', color: '#1a1a1a' },
   userInfo: { flex: 1, gap: 2 },
   userNameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  username: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
-  time: { fontSize: 12, color: '#aaa', fontWeight: '500' },
+  username: { fontSize: 14, fontWeight: '700' },
+  time: { fontSize: 12, fontWeight: '500' },
   badgeRow: { flexDirection: 'row', gap: 6 },
   typeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   typeBadgeText: { fontSize: 10, fontWeight: '800' },
   pairBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   pairText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-  content: { fontSize: 14, color: '#444', lineHeight: 21, fontWeight: '400' },
-  chartImage: { width: '100%', height: 180, borderRadius: 12, backgroundColor: '#f5f5f5' },
+  content: { fontSize: 14, lineHeight: 21, fontWeight: '400' },
+  chartImage: { width: '100%', height: 180, borderRadius: 12 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  profitBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f8f8f8', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  profitBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
   profitText: { fontSize: 14, fontWeight: '800' },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  actionCount: { fontSize: 13, color: '#666', fontWeight: '600' },
+  actionCount: { fontSize: 13, fontWeight: '600' },
 });
-
-
-/*
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import React from 'react';
-import {
-  Dimensions,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-
-const { width } = Dimensions.get('window');
-
-
-export function getTradingViewImageUrl(url: string | null): string | null {
-  if (!url) return null;
-  if (url.includes('tradingview.com/x/')) {
-    const cleanUrl = url.split('?')[0].replace(/\/$/, '');
-    if (!cleanUrl.endsWith('.png')) {
-      return `${cleanUrl}.png`;
-    }
-    return cleanUrl;
-  }
-  return url;
-}
-
-export type Trade = {
-  id: string;
-  user_id: string;
-  symbol: string;
-  trade_type: 'Buy' | 'Sell';
-  entry_price: number | null;
-  exit_price: number | null;
-  money_value: number;
-  trade_date: string;
-  tradingview_link: string | null;
-  notes: string | null;
-  chart_image_url: string | null;
-  likes_count: number;
-  comments_count: number;
-  created_at: string;
-  users?: {
-    username: string;
-    avatar_url: string | null;
-    is_verified: boolean;
-  };
-};
-
-// Backward compatibility alias
-export type Forecast = Trade;
-
-type Props = {
-  forecast: Trade;
-  onPress?: () => void;
-  onLike?: () => void;
-  isLiked?: boolean;
-};
-
-function Avatar({
-  url,
-  username,
-  size = 40,
-}: {
-  url?: string | null;
-  username: string;
-  size?: number;
-}) {
-  if (url) {
-    return (
-      <Image
-        source={{ uri: url }}
-        style={{ width: size, height: size, borderRadius: size / 2 }}
-      />
-    );
-  }
-  return (
-    <View
-      style={[
-        styles.avatarFallback,
-        { width: size, height: size, borderRadius: size / 2 },
-      ]}
-    >
-      <Text style={[styles.avatarInitial, { fontSize: size * 0.38 }]}>
-        {username?.[0]?.toUpperCase() ?? '?'}
-      </Text>
-    </View>
-  );
-}
-
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
-export default function ForecastCard({
-  forecast,
-  onPress,
-  onLike,
-  isLiked = false,
-}: Props) {
-  const router = useRouter();
-  const user = forecast.users;
-  const isProfitable = (forecast.money_value || 0) >= 0;
-
-  return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.95}>
-      <View style={styles.cardHeader}>
-        <TouchableOpacity 
-          onPress={() => router.push(`/user-profile?userId=${forecast.user_id}`)} 
-          style={styles.userClickable}
-        >
-          <Avatar url={user?.avatar_url} username={user?.username ?? '?'} />
-          <View style={styles.userInfo}>
-            <View style={styles.userNameRow}>
-              <Text style={styles.username}>@{user?.username ?? 'unknown'}</Text>
-              {user?.is_verified && (
-                <MaterialIcons name="verified" size={14} color="#F5C400" />
-              )}
-            </View>
-            <Text style={styles.time}>{timeAgo(forecast.created_at)}</Text>
-          </View>
-        </TouchableOpacity>
-        <View style={styles.badgeRow}>
-          {forecast.trade_type && (
-            <View style={[styles.typeBadge, { backgroundColor: forecast.trade_type === 'Buy' ? '#EBF8FF' : '#FFF5F5' }]}>
-              <Text style={[styles.typeBadgeText, { color: forecast.trade_type === 'Buy' ? '#3182CE' : '#E53E3E' }]}>
-                {forecast.trade_type}
-              </Text>
-            </View>
-          )}
-          <View
-            style={[
-              styles.pairBadge,
-              { backgroundColor: isProfitable ? '#ecfdf5' : '#fef2f2' },
-            ]}
-          >
-            <Text
-              style={[
-                styles.pairText,
-                { color: isProfitable ? '#059669' : '#dc2626' },
-              ]}
-            >
-              {forecast.symbol || 'UNKNOWN'}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {forecast.notes ? (
-        <Text style={styles.content} numberOfLines={3}>
-          {forecast.notes}
-        </Text>
-      ) : null}
-
-      {forecast.chart_image_url && (
-        <Image
-          source={{ uri: getTradingViewImageUrl(forecast.chart_image_url) || '' }}
-          style={styles.chartImage}
-          resizeMode="cover"
-        />
-      )}
-
-      <View style={styles.cardFooter}>
-        <View style={styles.profitBadge}>
-          <FontAwesome
-            name={isProfitable ? 'arrow-up' : 'arrow-down'}
-            size={11}
-            color={isProfitable ? '#059669' : '#dc2626'}
-          />
-          <Text
-            style={[
-              styles.profitText,
-              { color: isProfitable ? '#059669' : '#dc2626' },
-            ]}
-          >
-            {isProfitable ? '+' : ''}${Math.abs(forecast.money_value || 0).toFixed(2)}
-          </Text>
-        </View>
-
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionBtn} onPress={onLike}>
-            <FontAwesome
-              name={isLiked ? 'heart' : 'heart-o'}
-              size={16}
-              color={isLiked ? '#ef4444' : '#999'}
-            />
-            <Text style={styles.actionCount}>{forecast.likes_count}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionBtn} onPress={onPress}>
-            <FontAwesome name="comment-o" size={16} color="#999" />
-            <Text style={styles.actionCount}>{forecast.comments_count || 0}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-    gap: 12,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  userClickable: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  avatarFallback: { backgroundColor: '#F5C400', alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { fontWeight: '800', color: '#1a1a1a' },
-  userInfo: { flex: 1, gap: 2 },
-  userNameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  username: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
-  time: { fontSize: 12, color: '#aaa', fontWeight: '500' },
-  badgeRow: { flexDirection: 'row', gap: 6 },
-  typeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  typeBadgeText: { fontSize: 10, fontWeight: '800' },
-  pairBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
-  pairText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-  content: { fontSize: 14, color: '#444', lineHeight: 21, fontWeight: '400' },
-  chartImage: { width: '100%', height: 180, borderRadius: 12, backgroundColor: '#f5f5f5' },
-  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  profitBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f8f8f8', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
-  profitText: { fontSize: 14, fontWeight: '800' },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  actionCount: { fontSize: 13, color: '#666', fontWeight: '600' },
-});
-*/

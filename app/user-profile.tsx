@@ -16,7 +16,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColorScheme } from '@/components/useColorScheme';
+import { useTheme } from '@/components/ThemeContext';
 import Colors from '@/constants/Colors';
 import { Forecast } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
@@ -52,8 +52,8 @@ export default function UserProfile() {
     const router = useRouter();
     const { user: currentUser } = useAuth();
     const { userId } = useLocalSearchParams();
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const { colorScheme } = useTheme();
+    const C = Colors[colorScheme];
 
     const [userData, setUserData] = useState<UserData | null>(null);
     const [userPosts, setUserPosts] = useState<Forecast[]>([]);
@@ -184,22 +184,22 @@ export default function UserProfile() {
 
     if (loading) {
         return (
-            <View style={[styles.loader, { backgroundColor: Colors[colorScheme].background }]}>
-                <ActivityIndicator size="large" color="#F5C400" />
+            <View style={[styles.loader, { backgroundColor: C.background }]}>
+                <ActivityIndicator size="large" color={C.accent} />
             </View>
         );
     }
 
     if (!userData) {
         return (
-            <SafeAreaView style={[styles.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
+            <SafeAreaView style={[styles.root, { backgroundColor: C.background }]} edges={['top']}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()}>
-                        <FontAwesome name="chevron-left" size={24} color={Colors[colorScheme].text} />
+                        <FontAwesome name="chevron-left" size={24} color={C.text} />
                     </TouchableOpacity>
                 </View>
                 <View style={styles.errorContainer}>
-                    <Text style={[styles.errorText, { color: Colors[colorScheme].text }]}>User not found</Text>
+                    <Text style={[styles.errorText, { color: C.text }]}>User not found</Text>
                 </View>
             </SafeAreaView>
         );
@@ -209,63 +209,63 @@ export default function UserProfile() {
     const memberSince = userData.member_since ? formatMemberSince(userData.member_since) : 'Recently joined';
 
     return (
-        <SafeAreaView style={[styles.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
+        <SafeAreaView style={[styles.root, { backgroundColor: C.background }]} edges={['top']}>
             <ScrollView
                 style={styles.scroll}
                 showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F5C400" />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />}
             >
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()}>
-                        <FontAwesome name="chevron-left" size={24} color={Colors[colorScheme].text} />
+                        <FontAwesome name="chevron-left" size={24} color={C.text} />
                     </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: Colors[colorScheme].text }]}>{displayName}</Text>
+                    <Text style={[styles.headerTitle, { color: C.text }]}>{displayName}</Text>
                     <View style={{ width: 24 }} />
                 </View>
 
-                <View style={[styles.profileCard, { backgroundColor: isDark ? '#161A1E' : '#FFFFFF', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}>
+                <View style={[styles.profileCard, { backgroundColor: C.card, shadowColor: C.text }]}>
                     <View style={styles.avatarWrap}>
                         <Avatar url={userData.avatar_url} username={displayName} size={80} />
                         {userData.is_verified && (
-                            <View style={styles.verifiedBadge}>
-                                <MaterialIcons name="verified" size={16} color="#F5C400" />
+                            <View style={[styles.verifiedBadge, { backgroundColor: C.card }]}>
+                                <MaterialIcons name="verified" size={16} color={C.accent} />
                             </View>
                         )}
                     </View>
                     <View style={styles.profileInfo}>
                         <View style={styles.nameRow}>
-                            <Text style={[styles.username, { color: Colors[colorScheme].text }]}>@{displayName}</Text>
-                            <View style={[styles.tierBadge, userData.subscription_tier === 'pro' && styles.tierBadgePro]}>
-                                <Text style={[styles.tierText, userData.subscription_tier === 'pro' && styles.tierTextPro]}>
+                            <Text style={[styles.username, { color: C.text }]}>@{displayName}</Text>
+                            <View style={[styles.tierBadge, { backgroundColor: C.surface }, userData.subscription_tier === 'pro' && { backgroundColor: C.accent }]}>
+                                <Text style={[styles.tierText, { color: C.textMuted }, userData.subscription_tier === 'pro' && { color: C.textInverse }]}>
                                     {(userData.subscription_tier ?? 'free').toUpperCase()}
                                 </Text>
                             </View>
                         </View>
-                        <Text style={styles.memberSince}>Member since {memberSince}</Text>
+                        <Text style={[styles.memberSince, { color: C.textMuted }]}>Member since {memberSince}</Text>
                     </View>
-                    <View style={[styles.statsRow, { backgroundColor: isDark ? '#1E2026' : '#F9F9F7' }]}>
+                    <View style={[styles.statsRow, { backgroundColor: C.surface, borderTopColor: C.border }]}>
                         <View style={styles.stat}>
-                            <Text style={[styles.statNum, { color: Colors[colorScheme].text }]}>{userPosts.length}</Text>
-                            <Text style={styles.statLabel}>Posts</Text>
+                            <Text style={[styles.statNum, { color: C.text }]}>{userPosts.length}</Text>
+                            <Text style={[styles.statLabel, { color: C.textMuted }]}>Posts</Text>
                         </View>
-                        <View style={[styles.statDivider, { backgroundColor: isDark ? '#2B2F36' : '#EEE' }]} />
+                        <View style={[styles.statDivider, { backgroundColor: C.border }]} />
                         <View style={styles.stat}>
-                            <Text style={[styles.statNum, { color: Colors[colorScheme].text }]}>{followersCount}</Text>
-                            <Text style={styles.statLabel}>Followers</Text>
+                            <Text style={[styles.statNum, { color: C.text }]}>{followersCount}</Text>
+                            <Text style={[styles.statLabel, { color: C.textMuted }]}>Followers</Text>
                         </View>
-                        <View style={[styles.statDivider, { backgroundColor: isDark ? '#2B2F36' : '#EEE' }]} />
+                        <View style={[styles.statDivider, { backgroundColor: C.border }]} />
                         <View style={styles.stat}>
-                            <Text style={[styles.statNum, { color: Colors[colorScheme].text }]}>{followingCount}</Text>
-                            <Text style={styles.statLabel}>Following</Text>
+                            <Text style={[styles.statNum, { color: C.text }]}>{followingCount}</Text>
+                            <Text style={[styles.statLabel, { color: C.textMuted }]}>Following</Text>
                         </View>
                     </View>
 
                     {currentUser?.id !== userData.id && (
                         <TouchableOpacity
-                            style={[styles.followBtn, isFollowing && styles.followBtnActive]}
+                            style={[styles.followBtn, { backgroundColor: C.accent }, isFollowing && { backgroundColor: C.surface }]}
                             onPress={handleToggleFollow}
                         >
-                            <Text style={[styles.followBtnText, isFollowing && styles.followBtnTextActive]}>
+                            <Text style={[styles.followBtnText, { color: C.textInverse }, isFollowing && { color: C.textMuted }]}>
                                 {isFollowing ? 'Following' : 'Follow'}
                             </Text>
                         </TouchableOpacity>
@@ -274,33 +274,33 @@ export default function UserProfile() {
 
                 {userPosts.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>📈 Recent Posts</Text>
+                        <Text style={[styles.sectionTitle, { color: C.text }]}>📈 Recent Posts</Text>
                         {userPosts.map((post) => (
                             <TouchableOpacity
                                 key={post.id}
-                                style={[styles.postCard, { backgroundColor: isDark ? '#161A1E' : '#FFFFFF', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]}
+                                style={[styles.postCard, { backgroundColor: C.card, shadowColor: C.text }]}
                                 onPress={() => { setSelectedForecast(post); setModalVisible(true); }}
                                 activeOpacity={0.9}
                             >
                                 <View style={styles.postHeader}>
-                                    <Text style={[styles.postPair, { color: Colors[colorScheme].text }]}>{post.symbol || post.currency_pair}</Text>
-                                    <View style={[styles.profitBadge, { backgroundColor: (post.money_value ?? 0) >= 0 ? '#ecfdf5' : '#fef2f2' }]}>
-                                        <Text style={[styles.postProfit, { color: (post.money_value ?? 0) >= 0 ? '#059669' : '#dc2626' }]}>
+                                    <Text style={[styles.postPair, { color: C.text }]}>{post.symbol || post.currency_pair}</Text>
+                                    <View style={[styles.profitBadge, { backgroundColor: (post.money_value ?? 0) >= 0 ? 'rgba(14,203,129,0.12)' : 'rgba(246,70,93,0.12)' }]}>
+                                        <Text style={[styles.postProfit, { color: (post.money_value ?? 0) >= 0 ? '#0ECB81' : '#F6465D' }]}>
                                             {(post.money_value ?? 0) >= 0 ? '+' : ''}{(post.money_value ?? 0).toFixed(2)}$
                                         </Text>
                                     </View>
                                 </View>
-                                <Text style={[styles.postContent, { color: isDark ? '#B7BDC6' : '#444' }]} numberOfLines={2}>{post.notes || post.content}</Text>
+                                <Text style={[styles.postContent, { color: C.textSecondary }]} numberOfLines={2}>{post.notes || post.content}</Text>
                                 <View style={styles.postFooter}>
                                     <View style={styles.postStat}>
-                                        <FontAwesome name="heart-o" size={12} color="#ef4444" />
-                                        <Text style={styles.postStatText}>{post.likes_count}</Text>
+                                        <FontAwesome name="heart-o" size={12} color="#F6465D" />
+                                        <Text style={[styles.postStatText, { color: C.textSecondary }]}>{post.likes_count}</Text>
                                     </View>
                                     <View style={styles.postStat}>
-                                        <FontAwesome name="comment-o" size={12} color="#999" />
-                                        <Text style={styles.postStatText}>{post.comments_count || 0}</Text>
+                                        <FontAwesome name="comment-o" size={12} color={C.iconDefault} />
+                                        <Text style={[styles.postStatText, { color: C.textSecondary }]}>{post.comments_count || 0}</Text>
                                     </View>
-                                    <Text style={styles.postDate}>{new Date(post.created_at).toLocaleDateString()}</Text>
+                                    <Text style={[styles.postDate, { color: C.textMuted }]}>{new Date(post.created_at).toLocaleDateString()}</Text>
                                 </View>
                             </TouchableOpacity>
                         ))}
@@ -320,44 +320,41 @@ export default function UserProfile() {
         </SafeAreaView>
     );
 }
+
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#F5F5F3' },
-    loader: { flex: 1, backgroundColor: '#F5F5F3', alignItems: 'center', justifyContent: 'center' },
+    root: { flex: 1 },
+    loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     scroll: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
-    headerTitle: { fontSize: 20, fontWeight: '800', color: '#1a1a1a' },
-    profileCard: { marginHorizontal: 20, backgroundColor: '#fff', borderRadius: 24, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
+    headerTitle: { fontSize: 20, fontWeight: '800' },
+    profileCard: { marginHorizontal: 20, borderRadius: 24, padding: 20, alignItems: 'center', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
     avatarWrap: { position: 'relative', marginBottom: 16 },
-    verifiedBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#fff', borderRadius: 10, padding: 2 },
+    verifiedBadge: { position: 'absolute', bottom: 0, right: 0, borderRadius: 10, padding: 2 },
     profileInfo: { alignItems: 'center', gap: 4, marginBottom: 24 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    username: { fontSize: 20, fontWeight: '800', color: '#1a1a1a' },
-    tierBadge: { backgroundColor: '#f0f0ee', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-    tierBadgePro: { backgroundColor: '#F5C400' },
-    tierText: { fontSize: 10, fontWeight: '800', color: '#888' },
-    tierTextPro: { color: '#1a1a1a' },
-    memberSince: { fontSize: 13, color: '#aaa', fontWeight: '500' },
-    statsRow: { flexDirection: 'row', width: '100%', borderTopWidth: 1, borderTopColor: '#f5f5f5', paddingTop: 20, marginBottom: 20 },
-    stat: { flex: 1, alignItems: 'center', gap: 4 },
-    statNum: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
-    statLabel: { fontSize: 12, color: '#aaa', fontWeight: '600' },
-    statDivider: { width: 1, height: 24, backgroundColor: '#f5f5f5' },
-    followBtn: { backgroundColor: '#F5C400', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12, width: '100%', alignItems: 'center' },
-    followBtnActive: { backgroundColor: '#f0f0ee' },
-    followBtnText: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
-    followBtnTextActive: { color: '#888' },
+    username: { fontSize: 20, fontWeight: '800' },
+    tierBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    tierText: { fontSize: 10, fontWeight: '800' },
+    memberSince: { fontSize: 13, fontWeight: '500' },
+    statsRow: { flexDirection: 'row', width: '100%', borderTopWidth: 1, paddingTop: 20, marginBottom: 20, borderRadius: 12 },
+    stat: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 8 },
+    statNum: { fontSize: 18, fontWeight: '800' },
+    statLabel: { fontSize: 12, fontWeight: '600' },
+    statDivider: { width: 1, height: 24, alignSelf: 'center' },
+    followBtn: { borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12, width: '100%', alignItems: 'center' },
+    followBtnText: { fontSize: 14, fontWeight: '800' },
     section: { marginTop: 32, paddingHorizontal: 20, marginBottom: 32 },
-    sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1a1a1a', marginBottom: 16 },
-    postCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+    sectionTitle: { fontSize: 18, fontWeight: '800', marginBottom: 16 },
+    postCard: { borderRadius: 20, padding: 16, marginBottom: 12, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
     postHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    postPair: { fontSize: 16, fontWeight: '800', color: '#1a1a1a' },
+    postPair: { fontSize: 16, fontWeight: '800' },
     profitBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
     postProfit: { fontSize: 14, fontWeight: '900' },
-    postContent: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 12 },
+    postContent: { fontSize: 14, lineHeight: 20, marginBottom: 12 },
     postFooter: { flexDirection: 'row', alignItems: 'center', gap: 16 },
     postStat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    postStatText: { fontSize: 12, color: '#666', fontWeight: '600' },
-    postDate: { fontSize: 12, color: '#bbb', fontWeight: '500', marginLeft: 'auto' },
+    postStatText: { fontSize: 12, fontWeight: '600' },
+    postDate: { fontSize: 12, fontWeight: '500', marginLeft: 'auto' },
     errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    errorText: { fontSize: 16, color: '#aaa', fontWeight: '600' },
+    errorText: { fontSize: 16, fontWeight: '600' },
 });

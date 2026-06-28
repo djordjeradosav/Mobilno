@@ -16,7 +16,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColorScheme } from '@/components/useColorScheme';
+import { useTheme } from '@/components/ThemeContext';
 import Colors from '@/constants/Colors';
 import { Trade, getTradingViewImageUrl } from '@/components/ForecastCard';
 import TradeDetailsModal from '@/components/TradeDetailsModal';
@@ -50,14 +50,13 @@ type PostCardProps = {
     onLike: (id: string) => void;
     onPress: (trade: Trade) => void;
     onAvatarPress: (userId: string) => void;
+    C: any;
 };
 
-function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPress }: PostCardProps) {
+function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPress, C }: PostCardProps) {
     const scaleAnim = useRef(new Animated.Value(1)).current;
     const user = trade.users;
     const isProfitable = (trade.money_value || 0) >= 0;
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
 
     const handleLikePress = () => {
         Animated.sequence([
@@ -69,7 +68,7 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
 
     return (
         <TouchableOpacity 
-            style={[s.card, { backgroundColor: isDark ? '#161A1E' : '#FFFFFF', borderColor: isDark ? '#2B2F36' : '#E0E0E0' }]} 
+            style={[s.card, { backgroundColor: C.card, borderColor: C.border, borderBottomColor: C.divider }]} 
             onPress={() => onPress(trade)} 
             activeOpacity={0.95}
         >
@@ -79,12 +78,12 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
                     <Avatar url={user?.avatar_url} username={user?.username ?? '?'} size={38} />
                     <View style={s.userMeta}>
                         <View style={s.nameRow}>
-                            <Text style={[s.userName, { color: isDark ? '#EAECEF' : '#111' }]}>@{user?.username ?? 'trader'}</Text>
+                            <Text style={[s.userName, { color: C.text }]}>@{user?.username ?? 'trader'}</Text>
                             {user?.is_verified && (
-                                <MaterialIcons name="verified" size={12} color="#F0B90B" />
+                                <MaterialIcons name="verified" size={12} color={C.accent} />
                             )}
                         </View>
-                        <Text style={s.timeText}>{timeAgo(trade.created_at)}</Text>
+                        <Text style={[s.timeText, { color: C.textSecondary }]}>{timeAgo(trade.created_at)}</Text>
                     </View>
                 </TouchableOpacity>
 
@@ -95,7 +94,7 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
                             : 'rgba(246,70,93,0.12)'
                     }]}>
                         <Text style={[s.typeBadgeText, {
-                            color: trade.trade_type === 'Buy' ? '#0ECB81' : '#F6465D'
+                            color: trade.trade_type === 'Buy' ? C.success : C.danger
                         }]}>
                             {trade.trade_type}
                         </Text>
@@ -106,7 +105,7 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
                             : 'rgba(246,70,93,0.12)'
                     }]}>
                         <Text style={[s.symbolText, {
-                            color: isProfitable ? '#0ECB81' : '#F6465D'
+                            color: isProfitable ? C.success : C.danger
                         }]}>
                             {trade.symbol}
                         </Text>
@@ -116,12 +115,12 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
 
             {/* Notes */}
             {!!trade.notes && (
-                <Text style={[s.notes, { color: isDark ? '#B7BDC6' : '#444' }]} numberOfLines={3}>{trade.notes}</Text>
+                <Text style={[s.notes, { color: C.textSecondary }]} numberOfLines={3}>{trade.notes}</Text>
             )}
 
             {/* Chart */}
             {!!trade.chart_image_url && (
-                <View style={s.chartWrap}>
+                <View style={[s.chartWrap, { backgroundColor: C.surfaceSecondary }]}>
                     <Image
                         source={{ uri: getTradingViewImageUrl(trade.chart_image_url) || '' }}
                         style={s.chartImg}
@@ -140,9 +139,9 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
                     <FontAwesome
                         name={isProfitable ? 'arrow-up' : 'arrow-down'}
                         size={9}
-                        color={isProfitable ? '#0ECB81' : '#F6465D'}
+                        color={isProfitable ? C.success : C.danger}
                     />
-                    <Text style={[s.plText, { color: isProfitable ? '#0ECB81' : '#F6465D' }]}>
+                    <Text style={[s.plText, { color: isProfitable ? C.success : C.danger }]}>
                         {isProfitable ? '+' : '-'}${Math.abs(trade.money_value || 0).toFixed(2)}
                     </Text>
                 </View>
@@ -153,17 +152,17 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
                             <FontAwesome
                                 name={isLiked ? 'heart' : 'heart-o'}
                                 size={15}
-                                color={isLiked ? '#F6465D' : '#848E9C'}
+                                color={isLiked ? C.danger : C.iconDefault}
                             />
                         </Animated.View>
-                        <Text style={[s.actionCount, isLiked && { color: '#F6465D' }]}>
+                        <Text style={[s.actionCount, { color: C.textSecondary }, isLiked && { color: C.danger }]}>
                             {trade.likes_count || 0}
                         </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={s.actionBtn} onPress={() => onPress(trade)}>
-                        <FontAwesome name="comment-o" size={15} color="#848E9C" />
-                        <Text style={s.actionCount}>{trade.comments_count || 0}</Text>
+                        <FontAwesome name="comment-o" size={15} color={C.iconDefault} />
+                        <Text style={[s.actionCount, { color: C.textSecondary }]}>{trade.comments_count || 0}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -174,8 +173,8 @@ function PostCard({ trade, isLiked, currentUserId, onLike, onPress, onAvatarPres
 export default function Feed() {
     const { user } = useAuth();
     const router = useRouter();
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const { colorScheme } = useTheme();
+    const C = Colors[colorScheme];
 
     const [trades, setTrades] = useState<Trade[]>([]);
     const [loading, setLoading] = useState(true);
@@ -203,7 +202,6 @@ export default function Feed() {
     const fetchTrades = useCallback(async () => {
         if (!user?.id) return;
 
-        // Sync current user
         try {
             await syncUserToSupabase(user.id, user.email?.split('@')[0] || 'trader', user.email || '');
         } catch (e) {
@@ -282,23 +280,23 @@ export default function Feed() {
 
     if (loading) {
         return (
-            <View style={[s.loader, { backgroundColor: Colors[colorScheme].background }]}>
-                <ActivityIndicator size="large" color="#F0B90B" />
+            <View style={[s.loader, { backgroundColor: C.background }]}>
+                <ActivityIndicator size="large" color={C.accent} />
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={[s.root, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
+        <SafeAreaView style={[s.root, { backgroundColor: C.background }]} edges={['top']}>
             {/* Header */}
             <View style={s.header}>
-                <Text style={[s.logo, { color: isDark ? '#F0B90B' : '#D4A017' }]}>Ticksnap</Text>
+                <Text style={[s.logo, { color: C.accent }]}>Ticksnap</Text>
                 <TouchableOpacity
-                    style={s.postBtn}
+                    style={[s.postBtn, { backgroundColor: C.accent }]}
                     onPress={() => router.push('/(tabs)/forecast')}
                 >
-                    <FontAwesome name="plus" size={13} color="#0B0E11" />
-                    <Text style={s.postBtnText}>Post Trade</Text>
+                    <FontAwesome name="plus" size={13} color={C.textInverse} />
+                    <Text style={[s.postBtnText, { color: C.textInverse }]}>Post Trade</Text>
                 </TouchableOpacity>
             </View>
 
@@ -312,17 +310,17 @@ export default function Feed() {
                     >
                         <Text style={[
                             s.filterLabel, 
-                            { color: isDark ? '#848E9C' : '#999' },
-                            filter === f.key && s.filterLabelActive
+                            { color: C.textMuted },
+                            filter === f.key && { color: C.text, fontWeight: '700' }
                         ]}>
                             {f.label}
                         </Text>
-                        {filter === f.key && <View style={s.filterUnderline} />}
+                        {filter === f.key && <View style={[s.filterUnderline, { backgroundColor: C.accent }]} />}
                     </TouchableOpacity>
                 ))}
             </View>
 
-            <View style={[s.dividerLine, { backgroundColor: isDark ? '#1E2026' : '#E0E0E0' }]} />
+            <View style={[s.dividerLine, { backgroundColor: C.divider }]} />
 
             {/* Feed */}
             <FlatList
@@ -334,24 +332,24 @@ export default function Feed() {
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}
-                        tintColor="#F0B90B"
-                        colors={['#F0B90B']}
+                        tintColor={C.accent}
+                        colors={[C.accent]}
                     />
                 }
                 ListEmptyComponent={
                     <View style={s.empty}>
                         <Text style={s.emptyIcon}>📭</Text>
-                        <Text style={s.emptyTitle}>No posts yet</Text>
-                        <Text style={s.emptySubtitle}>
+                        <Text style={[s.emptyTitle, { color: C.text }]}>No posts yet</Text>
+                        <Text style={[s.emptySubtitle, { color: C.textMuted }]}>
                             {filter === 'following'
                                 ? 'Follow traders to see their posts here'
                                 : 'Be the first to post a trade!'}
                         </Text>
                         <TouchableOpacity
-                            style={s.emptyBtn}
+                            style={[s.emptyBtn, { backgroundColor: C.accent }]}
                             onPress={() => router.push('/(tabs)/forecast')}
                         >
-                            <Text style={s.emptyBtnText}>Post your first trade →</Text>
+                            <Text style={[s.emptyBtnText, { color: C.textInverse }]}>Post your first trade →</Text>
                         </TouchableOpacity>
                     </View>
                 }
@@ -363,6 +361,7 @@ export default function Feed() {
                         onLike={handleLike}
                         onPress={handleOpenModal}
                         onAvatarPress={openPreview}
+                        C={C}
                     />
                 )}
             />
@@ -388,8 +387,8 @@ export default function Feed() {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0B0E11' },
-    loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0E11' },
+    root: { flex: 1 },
+    loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
     header: {
         flexDirection: 'row',
@@ -403,19 +402,17 @@ const s = StyleSheet.create({
         fontSize: 22,
         fontWeight: '900',
         fontStyle: 'italic',
-        color: '#F0B90B',
         letterSpacing: -0.5,
     },
     postBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: '#F0B90B',
         paddingHorizontal: 14,
         paddingVertical: 8,
         borderRadius: 8,
     },
-    postBtnText: { fontSize: 13, fontWeight: '800', color: '#0B0E11' },
+    postBtnText: { fontSize: 13, fontWeight: '800' },
 
     filterRow: {
         flexDirection: 'row',
@@ -428,44 +425,40 @@ const s = StyleSheet.create({
         position: 'relative',
     },
     filterTabActive: {},
-    filterLabel: { fontSize: 14, fontWeight: '600', color: '#848E9C' },
-    filterLabelActive: { color: '#EAECEF', fontWeight: '700' },
+    filterLabel: { fontSize: 14, fontWeight: '600' },
     filterUnderline: {
         position: 'absolute',
         bottom: 0,
         left: 16,
         right: 16,
         height: 2,
-        backgroundColor: '#F0B90B',
         borderRadius: 1,
     },
-    dividerLine: { height: 1, backgroundColor: '#2B2F36', marginBottom: 12 },
+    dividerLine: { height: 1, marginBottom: 12 },
 
     list: { paddingHorizontal: 16, paddingBottom: 100, gap: 1 },
 
     card: {
-        backgroundColor: '#161A1E',
         borderRadius: 0,
         padding: 16,
         gap: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#2B2F36',
     },
     cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     userRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
     userMeta: { gap: 2 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    userName: { fontSize: 14, fontWeight: '700', color: '#EAECEF' },
-    timeText: { fontSize: 12, color: '#474D57', fontWeight: '500' },
+    userName: { fontSize: 14, fontWeight: '700' },
+    timeText: { fontSize: 12, fontWeight: '500' },
     badgeGroup: { flexDirection: 'row', gap: 6 },
     typeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
     typeBadgeText: { fontSize: 10, fontWeight: '800' },
     symbolBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
     symbolText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
 
-    notes: { fontSize: 14, color: '#848E9C', lineHeight: 21 },
+    notes: { fontSize: 14, lineHeight: 21 },
 
-    chartWrap: { borderRadius: 8, overflow: 'hidden', backgroundColor: '#1E2026' },
+    chartWrap: { borderRadius: 8, overflow: 'hidden' },
     chartImg: { width: '100%', height: 190 },
 
     cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -480,18 +473,17 @@ const s = StyleSheet.create({
     plText: { fontSize: 13, fontWeight: '900' },
     actions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
     actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    actionCount: { fontSize: 13, fontWeight: '600', color: '#848E9C' },
+    actionCount: { fontSize: 13, fontWeight: '600' },
 
     empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40, gap: 10 },
     emptyIcon: { fontSize: 48 },
-    emptyTitle: { fontSize: 18, fontWeight: '800', color: '#EAECEF' },
-    emptySubtitle: { fontSize: 14, color: '#848E9C', textAlign: 'center', lineHeight: 20 },
+    emptyTitle: { fontSize: 18, fontWeight: '800' },
+    emptySubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
     emptyBtn: {
         marginTop: 12,
-        backgroundColor: '#F0B90B',
         paddingHorizontal: 20,
         paddingVertical: 12,
         borderRadius: 8,
     },
-    emptyBtnText: { fontSize: 14, fontWeight: '800', color: '#0B0E11' },
+    emptyBtnText: { fontSize: 14, fontWeight: '800' },
 });

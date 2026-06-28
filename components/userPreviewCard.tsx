@@ -9,6 +9,8 @@ import {
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import Avatar from './Avatar';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/components/ThemeContext';
+import Colors from '@/constants/Colors';
 
 type UserPreviewCardProps = {
     id: string;
@@ -34,6 +36,8 @@ export default function UserPreviewCard({
     onFollowPress,
 }: UserPreviewCardProps) {
     const router = useRouter();
+    const { colorScheme } = useTheme();
+    const C = Colors[colorScheme];
 
     const handleCardPress = () => {
         router.push(`/user-profile?userId=${id}`);
@@ -47,7 +51,7 @@ export default function UserPreviewCard({
 
     return (
         <TouchableOpacity
-            style={styles.card}
+            style={[styles.card, { backgroundColor: C.card, shadowColor: C.text }]}
             onPress={handleCardPress}
             activeOpacity={0.7}
         >
@@ -55,24 +59,26 @@ export default function UserPreviewCard({
                 <Avatar url={avatar_url} username={username} size={56} />
                 <View style={styles.headerInfo}>
                     <View style={styles.usernameRow}>
-                        <Text style={styles.username}>@{username}</Text>
+                        <Text style={[styles.username, { color: C.text }]}>@{username}</Text>
                         {is_verified && (
-                            <MaterialIcons name="verified" size={16} color="#F5C400" />
+                            <MaterialIcons name="verified" size={16} color={C.accent} />
                         )}
                     </View>
-                    <Text style={styles.tier}>{subscription_tier} member</Text>
+                    <Text style={[styles.tier, { color: C.textMuted }]}>{subscription_tier} member</Text>
                 </View>
                 {onFollowPress && (
                     <TouchableOpacity
                         style={[
                             styles.followBtn,
-                            isFollowing && styles.followingBtn
+                            { backgroundColor: C.accent },
+                            isFollowing && { backgroundColor: C.surface }
                         ]}
                         onPress={handleFollowPress}
                     >
                         <Text style={[
                             styles.followBtnText,
-                            isFollowing && styles.followingBtnText
+                            { color: C.textInverse },
+                            isFollowing && { color: C.textMuted }
                         ]}>
                             {isFollowing ? 'Following' : 'Follow'}
                         </Text>
@@ -80,15 +86,15 @@ export default function UserPreviewCard({
                 )}
             </View>
 
-            <View style={styles.statsRow}>
+            <View style={[styles.statsRow, { backgroundColor: C.surface }]}>
                 <View style={styles.stat}>
-                    <Text style={styles.statValue}>{followerCount}</Text>
-                    <Text style={styles.statLabel}>Followers</Text>
+                    <Text style={[styles.statValue, { color: C.text }]}>{followerCount}</Text>
+                    <Text style={[styles.statLabel, { color: C.textMuted }]}>Followers</Text>
                 </View>
-                <View style={styles.statDivider} />
+                <View style={[styles.statDivider, { backgroundColor: C.border }]} />
                 <View style={styles.stat}>
-                    <Text style={styles.statValue}>{followingCount}</Text>
-                    <Text style={styles.statLabel}>Following</Text>
+                    <Text style={[styles.statValue, { color: C.text }]}>{followingCount}</Text>
+                    <Text style={[styles.statLabel, { color: C.textMuted }]}>Following</Text>
                 </View>
             </View>
         </TouchableOpacity>
@@ -97,11 +103,9 @@ export default function UserPreviewCard({
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: '#fff',
         borderRadius: 16,
         padding: 16,
         marginBottom: 12,
-        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 8,
@@ -125,34 +129,23 @@ const styles = StyleSheet.create({
     username: {
         fontSize: 16,
         fontWeight: '800',
-        color: '#1a1a1a',
     },
     tier: {
         fontSize: 12,
-        color: '#999',
         fontWeight: '600',
         textTransform: 'capitalize',
     },
     followBtn: {
-        backgroundColor: '#F5C400',
         paddingHorizontal: 14,
         paddingVertical: 6,
         borderRadius: 8,
     },
-    followingBtn: {
-        backgroundColor: '#eee',
-    },
     followBtnText: {
         fontSize: 12,
         fontWeight: '700',
-        color: '#1a1a1a',
-    },
-    followingBtnText: {
-        color: '#888',
     },
     statsRow: {
         flexDirection: 'row',
-        backgroundColor: '#f9f9f7',
         borderRadius: 12,
         paddingVertical: 10,
         alignItems: 'center',
@@ -165,19 +158,14 @@ const styles = StyleSheet.create({
     statValue: {
         fontSize: 16,
         fontWeight: '800',
-        color: '#1a1a1a',
     },
     statLabel: {
         fontSize: 11,
-        color: '#999',
         fontWeight: '600',
         textTransform: 'uppercase',
     },
     statDivider: {
         width: 1,
         height: 20,
-        backgroundColor: '#eee',
     },
 });
-
-

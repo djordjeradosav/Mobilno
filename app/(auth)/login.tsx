@@ -4,9 +4,13 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, T
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/components/ThemeContext';
+import Colors from '@/constants/Colors';
 
 export default function Login() {
   const router = useRouter();
+  const { colorScheme } = useTheme();
+  const C = Colors[colorScheme];
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,32 +38,32 @@ export default function Login() {
   };
 
   return (
-    <SafeAreaView style={s.root}>
+    <SafeAreaView style={[s.root, { backgroundColor: C.background }]}>
       <KeyboardAvoidingView style={s.kav} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <TouchableOpacity style={s.backBtn} onPress={() => router.back()}><FontAwesome name="arrow-left" size={16} color="#848E9C" /></TouchableOpacity>
-        <Text style={s.brand}>Ticksnap</Text>
-        <Text style={s.title}>Welcome back</Text>
+        <TouchableOpacity style={[s.backBtn, { backgroundColor: C.surface, borderColor: C.border }]} onPress={() => router.back()}><FontAwesome name="arrow-left" size={16} color={C.iconDefault} /></TouchableOpacity>
+        <Text style={[s.brand, { color: C.accent }]}>Ticksnap</Text>
+        <Text style={[s.title, { color: C.text }]}>Welcome back</Text>
         <View style={s.fieldWrap}>
-          <Text style={s.label}>Email</Text>
-          <View style={s.inputRow}>
-            <FontAwesome name="envelope-o" size={15} color="#848E9C" style={s.inputIcon} />
-            <TextInput style={s.input} placeholder="you@email.com" placeholderTextColor="#474D57" value={form.email} onChangeText={v => updateForm('email', v)} autoCapitalize="none" keyboardType="email-address" />
+          <Text style={[s.label, { color: C.textMuted }]}>Email</Text>
+          <View style={[s.inputRow, { backgroundColor: C.inputBackground, borderColor: C.border }]}>
+            <FontAwesome name="envelope-o" size={15} color={C.iconDefault} style={s.inputIcon} />
+            <TextInput style={[s.input, { color: C.text }]} placeholder="you@email.com" placeholderTextColor={C.placeholder} value={form.email} onChangeText={v => updateForm('email', v)} autoCapitalize="none" keyboardType="email-address" />
           </View>
         </View>
         <View style={s.fieldWrap}>
-          <View style={s.rowBetween}><Text style={s.label}>Password</Text><TouchableOpacity onPress={resetPassword}><Text style={s.forgot}>Forgot?</Text></TouchableOpacity></View>
-          <View style={s.inputRow}>
-            <FontAwesome name="lock" size={15} color="#848E9C" style={s.inputIcon} />
-            <TextInput style={s.input} placeholder="••••••••" placeholderTextColor="#474D57" value={form.password} onChangeText={v => updateForm('password', v)} secureTextEntry={!showPassword} />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}><FontAwesome name={showPassword ? 'eye-slash' : 'eye'} size={15} color="#848E9C" /></TouchableOpacity>
+          <View style={s.rowBetween}><Text style={[s.label, { color: C.textMuted }]}>Password</Text><TouchableOpacity onPress={resetPassword}><Text style={[s.forgot, { color: C.accent }]}>Forgot?</Text></TouchableOpacity></View>
+          <View style={[s.inputRow, { backgroundColor: C.inputBackground, borderColor: C.border }]}>
+            <FontAwesome name="lock" size={15} color={C.iconDefault} style={s.inputIcon} />
+            <TextInput style={[s.input, { color: C.text }]} placeholder="••••••••" placeholderTextColor={C.placeholder} value={form.password} onChangeText={v => updateForm('password', v)} secureTextEntry={!showPassword} />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}><FontAwesome name={showPassword ? 'eye-slash' : 'eye'} size={15} color={C.iconDefault} /></TouchableOpacity>
           </View>
         </View>
         <View style={{ flex: 1 }} />
         <TouchableOpacity style={[s.primaryBtn, loading && s.disabled]} onPress={handleLogin} disabled={loading}>
-          {loading ? <ActivityIndicator color="#0B0E11" /> : <Text style={s.primaryBtnText}>Log In →</Text>}
+          {loading ? <ActivityIndicator color={C.textInverse} /> : <Text style={[s.primaryBtnText, { color: C.textInverse }]}>Log In →</Text>}
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={s.linkBtn}>
-          <Text style={s.linkText}>Don't have an account? <Text style={s.linkBold}>Register</Text></Text>
+          <Text style={[s.linkText, { color: C.textMuted }]}>Don't have an account? <Text style={[s.linkBold, { color: C.accent }]}>Register</Text></Text>
         </TouchableOpacity>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -67,22 +71,22 @@ export default function Login() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B0E11' },
+  root: { flex: 1 },
   kav: { flex: 1, paddingHorizontal: 24, paddingTop: 16 },
-  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1E2026', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2B2F36', marginBottom: 32 },
-  brand: { fontSize: 17, fontWeight: '900', fontStyle: 'italic', color: '#F0B90B', marginBottom: 4 },
-  title: { fontSize: 28, fontWeight: '900', color: '#EAECEF', marginBottom: 36 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, marginBottom: 32 },
+  brand: { fontSize: 17, fontWeight: '900', fontStyle: 'italic', marginBottom: 4 },
+  title: { fontSize: 28, fontWeight: '900', marginBottom: 36 },
   fieldWrap: { marginBottom: 16 },
-  label: { fontSize: 11, fontWeight: '800', color: '#848E9C', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 8 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E2026', borderRadius: 16, paddingHorizontal: 16, height: 56, borderWidth: 1, borderColor: '#2B2F36' },
+  label: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 8 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingHorizontal: 16, height: 56, borderWidth: 1 },
   inputIcon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 15, fontWeight: '600', color: '#EAECEF' },
+  input: { flex: 1, fontSize: 15, fontWeight: '600' },
   primaryBtn: { height: 56, borderRadius: 16, backgroundColor: '#F0B90B', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   disabled: { opacity: 0.6 },
-  primaryBtnText: { fontSize: 15, fontWeight: '900', color: '#0B0E11' },
+  primaryBtnText: { fontSize: 15, fontWeight: '900' },
   linkBtn: { paddingBottom: 8, alignItems: 'center' },
-  linkText: { fontSize: 13, color: '#848E9C' },
-  linkBold: { color: '#F0B90B', fontWeight: '700' },
+  linkText: { fontSize: 13 },
+  linkBold: { fontWeight: '700' },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  forgot: { fontSize: 11, fontWeight: '800', color: '#F0B90B' },
+  forgot: { fontSize: 11, fontWeight: '800' },
 });

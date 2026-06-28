@@ -3,8 +3,10 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Line, Polyline, Rect } from 'react-native-svg';
+import { useTheme } from '@/components/ThemeContext';
+import Colors from '@/constants/Colors';
 
-function CandlestickChart() {
+function CandlestickChart({ C, isDark }: any) {
   const candles: [number, number, number, number, number, boolean][] = [
     [30, 105, 28, 95, 140, true],
     [65, 88, 30, 80, 125, false],
@@ -20,7 +22,7 @@ function CandlestickChart() {
       {[45, 90, 135].map(y => (
         <Line
           key={y} x1="0" y1={y} x2="280" y2={y}
-          stroke="rgba(240,185,11,0.12)" strokeWidth="1" strokeDasharray="5,4"
+          stroke={C.accent} strokeWidth="1" strokeDasharray="5,4" opacity={0.15}
         />
       ))}
       {candles.map(([x, bodyTop, bodyH, wickTop, wickBot, green], i) => (
@@ -33,7 +35,7 @@ function CandlestickChart() {
       ))}
       <Polyline
         points="30,119 65,103 100,89 135,103 170,76 205,84 240,71"
-        fill="none" stroke="#F0B90B" strokeWidth="2"
+        fill="none" stroke={C.accent} strokeWidth="2"
         strokeDasharray="6,4" opacity={0.7}
       />
     </Svg>
@@ -42,40 +44,43 @@ function CandlestickChart() {
 
 export default function Welcome() {
   const router = useRouter();
+  const { colorScheme } = useTheme();
+  const isDark = colorScheme === 'dark';
+  const C = Colors[colorScheme];
 
   return (
-    <SafeAreaView style={s.root}>
-      <Animated.Text entering={FadeIn.duration(600)} style={s.logo}>
+    <SafeAreaView style={[s.root, { backgroundColor: C.background }]}>
+      <Animated.Text entering={FadeIn.duration(600)} style={[s.logo, { color: C.accent }]}>
         Ticksnap
       </Animated.Text>
 
       <Animated.View entering={FadeInDown.delay(200).duration(700)} style={s.chartWrap}>
-        <View style={s.chartCard}>
-          <CandlestickChart />
+        <View style={[s.chartCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <CandlestickChart C={C} isDark={isDark} />
         </View>
         <View style={s.dotsRow}>
-          {[0, 1, 2].map(i => <View key={i} style={s.dot} />)}
+          {[0, 1, 2].map(i => <View key={i} style={[s.dot, { backgroundColor: C.border }]} />)}
         </View>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(400).duration(700)} style={s.bottom}>
-        <Text style={s.headline}>{'Trade Smarter.\nJournal Better.'}</Text>
-        <Text style={s.sub}>Made for traders by traders</Text>
+        <Text style={[s.headline, { color: C.text }]}>{'Trade Smarter.\nJournal Better.'}</Text>
+        <Text style={[s.sub, { color: C.textMuted }]}>Made for traders by traders</Text>
 
         <TouchableOpacity
-          style={s.primaryBtn}
+          style={[s.primaryBtn, { backgroundColor: C.accent }]}
           onPress={() => router.push('/(auth)/login')}
           activeOpacity={0.85}
         >
-          <Text style={s.primaryBtnText}>Log In to Account</Text>
+          <Text style={[s.primaryBtnText, { color: C.textInverse }]}>Log In to Account</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={s.secondaryBtn}
+          style={[s.secondaryBtn, { borderColor: C.border }]}
           onPress={() => router.push('/(auth)/register')}
           activeOpacity={0.85}
         >
-          <Text style={s.secondaryBtnText}>Create New Account</Text>
+          <Text style={[s.secondaryBtnText, { color: C.text }]}>Create New Account</Text>
         </TouchableOpacity>
       </Animated.View>
     </SafeAreaView>
@@ -85,7 +90,6 @@ export default function Welcome() {
 const s = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0B0E11',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
@@ -94,7 +98,6 @@ const s = StyleSheet.create({
     fontSize: 28,
     fontWeight: '900',
     fontStyle: 'italic',
-    color: '#F0B90B',
     letterSpacing: -0.5,
   },
   chartWrap: {
@@ -103,11 +106,9 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   chartCard: {
-    backgroundColor: '#1E2026',
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#2B2F36',
   },
   dotsRow: {
     flexDirection: 'row',
@@ -118,7 +119,6 @@ const s = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#2B2F36',
   },
   bottom: {
     width: '100%',
@@ -128,26 +128,22 @@ const s = StyleSheet.create({
   headline: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#EAECEF',
     textAlign: 'center',
     lineHeight: 36,
   },
   sub: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#848E9C',
     textAlign: 'center',
     marginBottom: 4,
   },
   primaryBtn: {
     width: '100%',
-    backgroundColor: '#F0B90B',
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
   },
   primaryBtnText: {
-    color: '#0B0E11',
     fontSize: 15,
     fontWeight: '900',
   },
@@ -158,10 +154,8 @@ const s = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#2B2F36',
   },
   secondaryBtnText: {
-    color: '#EAECEF',
     fontSize: 15,
     fontWeight: '700',
   },

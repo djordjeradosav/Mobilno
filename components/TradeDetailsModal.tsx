@@ -213,7 +213,7 @@ export default function TradeDetailsModal({
                 text: 'Delete',
                 style: 'destructive',
                 onPress: async () => {
-                    const { error } = await supabase.from('trades').delete().eq('id', forecast.id);
+                    const { error } = await supabase.from('forecasts').delete().eq('id', forecast.id);
                     if (error) Alert.alert('Error', 'Could not delete forecast');
                     else {
                         onClose();
